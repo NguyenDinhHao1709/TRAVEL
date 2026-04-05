@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Runtime files
+*.pid
+*.seed
+*.pid.lock
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Uploads and generated media
+backend/uploads/
+
+# Frontend / backend local caches
+frontend/.vite/
+backend/.cache/
+
+# Optional lock from package managers cache
+.pnpm-store/

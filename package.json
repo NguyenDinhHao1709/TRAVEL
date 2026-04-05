@@ -1,0 +1,11 @@
+{
+  "name": "travel-management-workspace",
+  "private": true,
+  "scripts": {
+    "dev:micro": "npm --prefix backend run dev:micro",
+    "start:micro": "npm --prefix backend run start:micro",
+    "check:micro": "npm --prefix backend run check:micro",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev"
+  }
+}
