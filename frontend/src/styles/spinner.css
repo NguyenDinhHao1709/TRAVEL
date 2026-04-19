@@ -1,0 +1,60 @@
+.spinner {
+  border: 3px solid rgba(21, 101, 192, 0.12);
+  border-top: 3px solid var(--color-primary, #1565c0);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 0.75s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  margin: 2rem auto;
+}
+
+.spinner-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  padding: 3rem 1rem;
+  animation: fadeIn 0.3s ease both;
+}
+
+.spinner-text {
+  color: var(--color-text-sub, #4b5563);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+.skeleton-card {
+  height: 280px;
+  border-radius: var(--radius-card, 16px);
+}
+
+.skeleton-text {
+  height: 16px;
+  margin-bottom: 8px;
+  width: 80%;
+}
+
+.skeleton-text-sm {
+  height: 12px;
+  margin-bottom: 6px;
+  width: 60%;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}

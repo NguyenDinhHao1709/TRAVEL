@@ -101,6 +101,17 @@ const TourManagementPage = () => {
       return;
     }
 
+    const lat = Number(form.latitude);
+    const lng = Number(form.longitude);
+    if (form.latitude && (lat < -90 || lat > 90)) {
+      setMessage('Vĩ độ phải nằm trong khoảng -90 đến 90');
+      return;
+    }
+    if (form.longitude && (lng < -180 || lng > 180)) {
+      setMessage('Kinh độ phải nằm trong khoảng -180 đến 180');
+      return;
+    }
+
     try {
       const payload = {
         title: form.title,
@@ -220,27 +231,57 @@ const TourManagementPage = () => {
                   />
                 </Form.Group>
               </Col>
-              <Col md={6}>
+              <Col md={5}>
                 <Form.Group>
-                  <Form.Label>Vĩ độ</Form.Label>
+                  <Form.Label>Vĩ độ (Latitude)</Form.Label>
                   <Form.Control
                     type="number"
                     step="0.000001"
+                    min="-90"
+                    max="90"
+                    placeholder="VD: 10.762622"
                     value={form.latitude}
                     onChange={(e) => setForm({ ...form, latitude: e.target.value })}
                   />
+                  <Form.Text className="text-muted">-90 đến 90</Form.Text>
                 </Form.Group>
               </Col>
-              <Col md={6}>
+              <Col md={5}>
                 <Form.Group>
-                  <Form.Label>Kinh độ</Form.Label>
+                  <Form.Label>Kinh độ (Longitude)</Form.Label>
                   <Form.Control
                     type="number"
                     step="0.000001"
+                    min="-180"
+                    max="180"
+                    placeholder="VD: 106.660172"
                     value={form.longitude}
                     onChange={(e) => setForm({ ...form, longitude: e.target.value })}
                   />
+                  <Form.Text className="text-muted">-180 đến 180</Form.Text>
                 </Form.Group>
+              </Col>
+              <Col md={2} className="d-flex align-items-end">
+                <Button
+                  variant="outline-secondary"
+                  className="w-100 mb-3"
+                  onClick={async () => {
+                    const q = form.destination.trim();
+                    if (!q) { setMessage('Nhập điểm đến trước khi lấy tọa độ'); return; }
+                    try {
+                      const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ', Việt Nam')}&limit=1`);
+                      const data = await resp.json();
+                      if (data.length > 0) {
+                        setForm(f => ({ ...f, latitude: data[0].lat, longitude: data[0].lon }));
+                        setMessage(`Đã lấy tọa độ: ${data[0].display_name}`);
+                      } else {
+                        setMessage('Không tìm thấy tọa độ cho điểm đến này');
+                      }
+                    } catch { setMessage('Lỗi khi lấy tọa độ'); }
+                  }}
+                >
+                  📍 Tự lấy
+                </Button>
               </Col>
               <Col md={12}>
                 <ImageUpload

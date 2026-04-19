@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Button, Form, Alert } from 'react-bootstrap';
+import { Card, Button, Form, Alert, InputGroup, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -16,6 +16,9 @@ const RegisterPage = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [info, setInfo] = useState('');
   const [error, setError] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const emailValue = String(form.email || '').trim();
   const fullNameValue = normalizeFullName(form.fullName);
@@ -43,6 +46,7 @@ const RegisterPage = () => {
     }
 
     try {
+      setLoading(true);
       if (!otpSent) {
         const result = await requestRegisterOtp(form.fullName, form.email, form.password);
         setRegisterToken(result.registerToken);
@@ -60,6 +64,8 @@ const RegisterPage = () => {
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng ký thất bại');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -67,11 +73,14 @@ const RegisterPage = () => {
     try {
       setError('');
       setInfo('');
+      setLoading(true);
       const result = await requestRegisterOtp(form.fullName, form.email, form.password);
       setRegisterToken(result.registerToken);
       setInfo('Đã gửi lại mã OTP mới về Gmail của bạn.');
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể gửi lại mã OTP');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -115,21 +124,31 @@ const RegisterPage = () => {
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Mật khẩu</Form.Label>
-            <Form.Control
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              required
-            />
+            <InputGroup>
+              <Form.Control
+                type={showPw ? 'text' : 'password'}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required
+              />
+              <Button variant="outline-secondary" onClick={() => setShowPw(!showPw)} tabIndex={-1} style={{ borderTopRightRadius: 12, borderBottomRightRadius: 12 }}>
+                {showPw ? '🙈' : '👁️'}
+              </Button>
+            </InputGroup>
           </Form.Group>
           <Form.Group className="mb-3">
             <Form.Label>Nhập lại mật khẩu</Form.Label>
-            <Form.Control
-              type="password"
-              value={form.confirmPassword}
-              onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-              required
-            />
+            <InputGroup>
+              <Form.Control
+                type={showConfirmPw ? 'text' : 'password'}
+                value={form.confirmPassword}
+                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                required
+              />
+              <Button variant="outline-secondary" onClick={() => setShowConfirmPw(!showConfirmPw)} tabIndex={-1} style={{ borderTopRightRadius: 12, borderBottomRightRadius: 12 }}>
+                {showConfirmPw ? '🙈' : '👁️'}
+              </Button>
+            </InputGroup>
           </Form.Group>
 
           {otpSent && (
@@ -145,10 +164,13 @@ const RegisterPage = () => {
           )}
 
           <div className="d-flex gap-2">
-            <Button type="submit">{otpSent ? 'Xác nhận OTP & đăng ký' : 'Gửi mã OTP'}</Button>
+            <Button type="submit" disabled={loading}>
+              {loading && <Spinner animation="border" size="sm" className="me-1" />}
+              {otpSent ? 'Xác nhận OTP & đăng ký' : 'Gửi mã OTP'}
+            </Button>
             {otpSent && (
-              <Button type="button" variant="outline-secondary" onClick={onResendOtp}>
-                Gửi lại OTP
+              <Button type="button" variant="outline-secondary" onClick={onResendOtp} disabled={loading}>
+                {loading ? <Spinner animation="border" size="sm" /> : 'Gửi lại OTP'}
               </Button>
             )}
             <Button type="button" variant="outline-danger" onClick={onCancel}>

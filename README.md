@@ -1,330 +1,397 @@
-# Travel Management System (MVP)
+# Travel Management System — HK2 Travel
 
-Hệ thống quản lý du lịch theo quy trình User / Staff / Admin, sử dụng:
-- Frontend: ReactJS, Bootstrap 5, React Router DOM, Axios, Recharts, Google Maps API
-- Backend: Node.js, Express, RESTful API, JWT, Multer, Cloudinary
-- Database: MySQL
-- Tích hợp:
-  - VNPAY Payment Gateway (Sandbox)
-  - Google Maps (tour location, itinerary mapping)
-  - Cloudinary (image upload)
-  - AI Chatbot (tour recommendation)
+Hệ thống quản lý du lịch phục vụ 3 loại người dùng: **Customer / Staff / Admin**.
+
+- **Frontend:** ReactJS + Vite + Bootstrap 5 + Recharts + OpenStreetMap
+- **Backend:** Node.js + Express (Monolith), REST API, JWT, Socket.IO
+- **Database:** MySQL / MariaDB 10.4
+- **Tích hợp:** VNPAY Payment Gateway, Cloudinary (upload ảnh), Gmail SMTP (OTP), AI Chatbot
+
+---
 
 ## Kiến trúc hệ thống
 
-Hệ thống theo mô hình **Microservices + API Gateway**:
-
-- **Frontend (React + Vite, port 5173):** giao diện cho Customer/Staff/Admin.
-- **API Gateway (port 8080):** điểm vào API duy nhất cho frontend.
-- **Domain services (5001-5010):** auth, tour, booking, payment, wishlist, review, upload, chatbot, staff, admin.
-- **Fallback service (port 5000):** giữ các module chưa tách hoàn toàn.
-- **Database (MySQL):** dữ liệu dùng chung.
-- **Dịch vụ ngoài:** VNPAY/MoMo, Cloudinary, Google Maps, AI Chatbot.
-
-```mermaid
-flowchart LR
-   U[User/Staff/Admin Browser]\nReact SPA
-   F[Frontend\nVite + React]
-   GW[API Gateway\nNode.js + Express]
-   S1[Auth/Tour/Booking/Payment]
-   S2[Wishlist/Review/Upload]
-   S3[Chatbot/Staff/Admin]
-   FB[Fallback Monolith]
-   DB[(MySQL)]
-   C[Cloudinary]
-   V[VNPAY/MoMo]
-   G[Google Maps API]
-   A[AI Service]
-
-   U --> F
-   F -->|HTTP REST /api/*| GW
-   GW --> S1
-   GW --> S2
-   GW --> S3
-   GW --> FB
-   S1 <--> DB
-   S2 <--> DB
-   S3 <--> DB
-   FB <--> DB
-   S1 --> V
-   S2 --> C
-   S3 --> A
-   F --> G
+```
+Browser
+  └── Frontend (React, port 5173)
+        └── API calls /api/* ──▶ Backend (Express, port 5000)
+                                    ├── MySQL (travel_management)
+                                    ├── Cloudinary (image upload)
+                                    ├── VNPAY (payment)
+                                    └── Gmail SMTP (OTP email)
 ```
 
-### Nguyên tắc giao tiếp giữa các thành phần
+Backend là **monolith** — tất cả routes/controllers/services nằm trong `backend/src/`.
 
-- Frontend gọi API Gateway qua REST API (`/api/*`) bằng Axios.
-- Mỗi service tổ chức theo tầng `routes -> controllers -> services -> db`.
-- Xác thực dùng JWT Bearer token và middleware phân quyền theo role.
+---
 
-### Luồng nghiệp vụ tiêu biểu
-
-1. **Đăng nhập:** Frontend -> Gateway -> Auth service -> MySQL -> JWT.
-2. **Đặt tour:** Frontend -> Gateway -> Booking service -> MySQL.
-3. **Thanh toán:** Frontend -> Gateway -> Payment service -> VNPAY/MoMo -> callback.
-4. **Upload ảnh:** Frontend -> Gateway -> Upload service -> Cloudinary -> MySQL.
-5. **Chatbot:** Frontend -> Gateway -> Chatbot service -> AI provider -> MySQL.
-
-## 1) Cấu trúc dự án
+## Cấu trúc thư mục
 
 ```
 travel-management/
-  backend/
-      microservices/
-         gateway/
-         auth-service/
-         tour-service/
-         booking-service/
-         payment-service/
-         wishlist-service/
-         review-service/
-         upload-service/
-         chatbot-service/
-         staff-service/
-         admin-service/
-         common/
-         scripts/
-    src/
-      controllers/
-      middleware/
-      routes/
-      services/ (VNPAY, Cloudinary)
-      server.js
-    sql/schema.sql
-    sql/seed.sql
-  frontend/
-    src/
-      components/ (MapComponent, ImageUpload)
-      pages/ (customer, staff, admin)
-      App.jsx
+├── backend/
+│   ├── src/
+│   │   ├── server.js              # Entry point, port 5000
+│   │   ├── config/db.js           # MySQL connection pool
+│   │   ├── controllers/           # Xử lý logic nghiệp vụ
+│   │   ├── routes/                # Định nghĩa API endpoints
+│   │   ├── middleware/            # Auth, rate-limit, sanitize, upload
+│   │   ├── services/              # VNPAY, Cloudinary, Email, AI, OTP, CAPTCHA
+│   │   ├── utils/jwt.js
+│   │   └── sql/
+│   │       ├── schema.sql         # Tạo bảng
+│   │       └── seed.sql           # Dữ liệu mẫu
+│   ├── .env
+│   └── package.json
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx                # Router chính
+│   │   ├── api/client.js          # Axios instance
+│   │   ├── components/            # AppNavbar, AppFooter, ChatWidget, MapComponent, ...
+│   │   ├── contexts/              # AuthContext, AppContext, ThemeContext
+│   │   ├── styles/                # global.css, spinner.css
+│   │   └── pages/
+│   │       ├── LoginPage.jsx      # Đăng nhập (CAPTCHA, hiện/ẩn mật khẩu)
+│   │       ├── RegisterPage.jsx   # Đăng ký (OTP email, hiện/ẩn mật khẩu)
+│   │       ├── ContactPage.jsx    # Liên hệ
+│   │       ├── AboutPage.jsx      # Giới thiệu
+│   │       ├── info/              # Hướng dẫn, chính sách, FAQ
+│   │       ├── customer/          # TourList, TourDetail, MyBookings, Wishlist, ...
+│   │       ├── staff/             # StaffDashboardPage (xuất Excel)
+│   │       └── admin/             # AdminDashboard, TourManagement, AdminArticles
+│   ├── .env
+│   └── package.json
+└── uploads/                       # File upload tạm (local fallback)
 ```
 
-## 2) Thiết lập 3rd party services
+---
 
-### 2A. VNPAY (Thanh toán)
-1. Đăng ký tài khoản tại: https://vnpayment.vn/
-2. Lấy **TMN Code** và **Secret Key** từ dashboard
-3. Thêm vào `.env`:
-   ```
-   VNPAY_MODE=sandbox
-   VNPAY_TMN_CODE=REPLACE_WITH_REAL_TMN_CODE
-   VNPAY_SECRET_KEY=REPLACE_WITH_REAL_SECRET_KEY
-   VNPAY_RETURN_URL=http://localhost:5173/payment-return
-   ```
-4. Nếu chạy production: đổi `VNPAY_MODE=production`.
-5. Có thể override URL bằng tay qua `VNPAY_URL`, `VNPAY_API_URL` (để trống nếu dùng mặc định theo mode).
+## Tài khoản test
 
-### 2B. Google Maps API
-1. Bật Google Maps JavaScript API tại https://console.cloud.google.com/
-2. Lấy API Key
-3. Thêm vào frontend `.env`:
-   ```
-   VITE_GOOGLE_MAPS_API_KEY=your_key_here
-   ```
+| Role  | Email              | Password   | Trang sau đăng nhập        |
+|-------|--------------------|------------|----------------------------|
+| Admin | admin@travel.com   | Admin@2025 | `/admin` (Dashboard)       |
+| Staff | staff@travel.com   | Staff@2025 | `/staff` (Dashboard)       |
+| User  | user@travel.com    | User@2025  | `/` (Trang chủ)            |
 
-### 2C. Cloudinary (Image Upload)
-1. Đăng ký tại https://cloudinary.com/
-2. Lấy Cloud Name, API Key, API Secret
-3. Thêm vào backend `.env`:
-   ```
-   CLOUDINARY_CLOUD_NAME=xxx
-   CLOUDINARY_API_KEY=xxx
-   CLOUDINARY_API_SECRET=xxx
-   ```
+> **Đăng ký tài khoản mới:** cần nhập OTP gửi qua email (hiệu lực **5 phút**).  
+> CAPTCHA đăng nhập cũng có hiệu lực **5 phút**.  
+> Trong môi trường dev, OTP được in ra console backend: `[Auth][DEV] OTP Code: XXXXXX`
 
-## 3) Thiết lập database MySQL
+---
 
-1. Tạo schema và bảng:
-   ```bash
-   mysql -u root -p < backend/sql/schema.sql
-   ```
-2. Nạp dữ liệu mẫu:
-   ```bash
-   mysql -u root -p < backend/sql/seed.sql
-   ```
+## Cài đặt & Chạy
 
-Tài khoản mẫu (password: `password`):
-- Admin: `admin@travel.com`
-- Staff: `abc170909@gmail.com.com`
-- User: `hackhack1709@gmail.com`
+### Yêu cầu
+- Node.js 18+
+- MySQL / MariaDB 10.4 (XAMPP)
+- XAMPP đang chạy (Apache + MySQL)
 
-## 4) Chạy backend
+### 1. Clone & cài packages
 
 ```bash
-cd backend
-cp .env.example .env
-# Cấu hình DB_USER, DB_PASSWORD, VNPAY_*, CLOUDINARY_*
-
-npm install
-npm run dev:micro
+npm install           # root (nếu có)
+cd backend && npm install
+cd ../frontend && npm install
 ```
 
-Các cổng backend khi chạy microservices:
-- API Gateway: `http://localhost:8080`
-- Auth Service: `http://localhost:5001`
-- Tour Service: `http://localhost:5002`
-- Booking Service: `http://localhost:5003`
-- Payment Service: `http://localhost:5004`
-- Wishlist Service: `http://localhost:5005`
-- Review Service: `http://localhost:5006`
-- Upload Service: `http://localhost:5007`
-- Chatbot Service: `http://localhost:5008`
-- Staff Service: `http://localhost:5009`
-- Admin Service: `http://localhost:5010`
-- Fallback Service: `http://localhost:5000`
+### 2. Thiết lập Database
 
-Tối ưu đã bật mặc định:
-- Gateway rate limit cho nhóm `auth` và nhóm endpoint ghi dữ liệu.
-- Gateway cache ngắn hạn cho các API đọc nhiều như `/api/tours`, `/api/articles`.
-- Gắn `x-request-id` và log request để trace nhanh lỗi xuyên service.
-
-Biến môi trường tinh chỉnh:
-- `GATEWAY_CACHE_TTL_MS=15000` (ms, TTL cache ở gateway)
-- `LOG_REQUESTS=true` (bật/tắt request log)
-- `VITE_API_TIMEOUT=10000` (frontend timeout ms)
-
-Kiểm tra nhanh sức khỏe services:
+Mở XAMPP, bật MySQL, rồi chạy:
 
 ```bash
-npm run check:micro
+mysql -u root < backend/src/sql/schema.sql
+mysql -u root travel_management < backend/src/sql/seed.sql
 ```
 
-## 5) Chạy frontend
+Hoặc qua phpMyAdmin: tạo DB `travel_management`, import `schema.sql` rồi `seed.sql`.
 
+### 3. Cấu hình backend `.env`
+
+Tạo file `backend/.env`:
+
+```env
+PORT=5000
+FRONTEND_URL=http://localhost:5173
+
+# Database
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=travel_management
+
+# JWT
+JWT_SECRET=your_random_secret_here
+
+# Email (Gmail App Password)
+EMAIL_USER=hk2travel@gmail.com
+EMAIL_PASS=xxxx_xxxx_xxxx_xxxx
+
+# VNPAY (sandbox)
+VNPAY_TMN_CODE=your_tmn_code
+VNPAY_HASH_SECRET=your_hash_secret
+VNPAY_RETURN_URL=http://localhost:5173/payment-return
+
+# Cloudinary (upload ảnh)
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+```
+
+### 4. Cấu hình frontend `.env`
+
+Tạo file `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:5000/api
+VITE_SOCKET_URL=http://localhost:5000
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
+```
+
+### 5. Chạy
+
+**Terminal 1 — Backend:**
 ```bash
-cd frontend
-cp .env.example .env
-# Cấu hình VITE_GOOGLE_MAPS_API_KEY
-
-npm install
-npm run dev
+node backend/src/server.js
+# hoặc: cd backend && npm run dev
 ```
+Backend chạy tại: `http://localhost:5000`
 
+**Terminal 2 — Frontend:**
+```bash
+cd frontend && npm run dev
+```
 Frontend chạy tại: `http://localhost:5173`
-Frontend mặc định gọi API qua gateway: `http://localhost:8080/api`
 
-## 6) Các tính năng đã có
+---
 
-### Customer (User)
-- ✅ Xem danh sách tour, tìm kiếm/lọc tour
-- ✅ Xem chi tiết tour (lịch trình, giá, đánh giá, **bản đồ Google Maps**)
-- ✅ Đăng ký/đăng nhập
-- ✅ Đặt tour (ngày đi, số lượng người, kiểm tra slot)
-- ✅ **Thanh toán VNPAY** (sandbox mode, redirect flow)
-- ✅ Xem/hủy booking cá nhân
-- ✅ Wishlist
-- ✅ Đánh giá tour
-- ✅ Chatbot hỏi đáp tour/giá/gợi ý
+## Tính năng theo role
 
-### Staff
-- ✅ Đăng nhập
-- ✅ Xem toàn bộ booking
-- ✅ Xác nhận/hủy booking
-- ✅ Xem danh sách khách hàng
+### Customer (`/`)
+| Tính năng | Route |
+|-----------|-------|
+| Xem & tìm kiếm tour (skeleton loading) | `/tours` |
+| Xem chi tiết tour, bản đồ | `/tours/:id` |
+| Đăng ký (OTP email, hiện/ẩn mật khẩu) | `/register` |
+| Đăng nhập (CAPTCHA, hiện/ẩn mật khẩu) | `/login` |
+| Quên mật khẩu (OTP email) | `/login` |
+| Đặt tour & thanh toán VNPAY | `/my-bookings` |
+| Giả lập thanh toán (dev) | nút `[DEV]` trong My Bookings |
+| Wishlist | `/wishlist` |
+| Xem bài viết | `/articles`, `/articles/:id` |
+| Chatbot AI | `/chatbot` |
+| Liên hệ | `/contact` |
+| Giới thiệu & thông tin | Dropdown "Giới thiệu" trên navbar |
 
-### Admin
-- ✅ Dashboard thống kê (users/tours/bookings/doanh thu)
-- ✅ Xem danh sách user
-- ✅ Xem review (quản lý)
-- ✅ Xem system logs
-- ✅ **Tạo/chỉnh sửa tour với upload ảnh**
-- ✅ **Quản lý tour location (latitude/longitude)**
+**Trang thông tin (dropdown Giới thiệu):**
+| Trang | Route |
+|-------|-------|
+| Về chúng tôi | `/about` |
+| Hướng dẫn đặt tour | `/huong-dan-dat-tour` |
+| Hướng dẫn thanh toán | `/huong-dan-thanh-toan` |
+| Chính sách bảo mật | `/chinh-sach-bao-mat` |
+| Điều khoản chung | `/dieu-khoan-chung` |
+| Câu hỏi thường gặp | `/cau-hoi-thuong-gap` |
 
-## 7) API chính
+### Staff (`/staff`)
+| Tính năng | Ghi chú |
+|-----------|---------|
+| Xem toàn bộ booking | |
+| Xác nhận / Hủy booking | |
+| Xem danh sách tour | |
+| **Xuất báo cáo Excel** đặt tour | Thư viện `xlsx` |
+| Chat nội bộ | Socket.IO |
 
-### Auth
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `GET /api/auth/me`
+### Admin (`/admin`, `/admin/tours`, `/admin/articles`)
+| Tính năng | Ghi chú |
+|-----------|---------|
+| Dashboard: Users, Tours, Bookings, Doanh thu | |
+| Báo cáo đặt tour theo ngày/tháng/năm | Biểu đồ Recharts |
+| Quản lý users (ban, reset password) | |
+| Quản lý reviews | |
+| System logs | |
+| Tạo / Sửa / Xóa tour | Upload ảnh Cloudinary |
+| Tự lấy tọa độ từ tên điểm đến | Nominatim geocoding |
+| Quản lý bài viết | `/admin/articles` |
+| Quản lý liên hệ | |
 
-### Tours
-- `GET /api/tours` (search, filter by price)
-- `GET /api/tours/:id`
-- `POST /api/tours` (admin)
-- `PUT /api/tours/:id` (admin)
-- `DELETE /api/tours/:id` (admin)
+---
 
-### Bookings
-- `POST /api/bookings` (create)
-- `GET /api/bookings/my` (my bookings)
-- `PATCH /api/bookings/my/:id/cancel` (cancel)
-- `GET /api/bookings/staff/all` (staff)
-- `PATCH /api/bookings/staff/:id/confirm` (staff)
-- `PATCH /api/bookings/staff/:id/cancel` (staff)
+## API Endpoints chính
 
-### Payments
-- `POST /api/payments` (mock payment - old)
-- `POST /api/payments/vnpay/create-url` (**VNPAY redirect**)
-- `GET /api/payments/vnpay/return` (**VNPAY callback**)
+### Auth — `/api/auth`
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| GET | `/captcha` | Lấy ảnh CAPTCHA (hiệu lực 5 phút) |
+| POST | `/register/request-otp` | Gửi OTP đăng ký (hiệu lực 5 phút) |
+| POST | `/register` | Xác nhận OTP, tạo tài khoản |
+| POST | `/login` | Đăng nhập (CAPTCHA + JWT) |
+| POST | `/forgot-password/request-otp` | Gửi OTP quên mật khẩu |
+| POST | `/forgot-password/reset` | Đặt lại mật khẩu với OTP |
+| POST | `/change-password` | Đổi mật khẩu (đã đăng nhập) |
 
-### Upload
-- `POST /api/upload/tour` (upload tour image)
-- `POST /api/upload/banner` (upload banner)
+### Tours — `/api/tours`
+| Method | Endpoint | Mô tả | Role |
+|--------|----------|-------|------|
+| GET | `/` | Danh sách tour (search, filter) | Public |
+| GET | `/:id` | Chi tiết tour | Public |
+| POST | `/` | Tạo tour | Admin |
+| PUT | `/:id` | Sửa tour | Admin |
+| DELETE | `/:id` | Xóa tour | Admin |
 
-### Wishlists
-- `POST /api/wishlists` (add)
-- `GET /api/wishlists/my` (get my wishlist)
-- `DELETE /api/wishlists/my/:tourId` (remove)
+### Bookings — `/api/bookings`
+| Method | Endpoint | Mô tả | Role |
+|--------|----------|-------|------|
+| POST | `/` | Đặt tour | User |
+| GET | `/my` | Booking của tôi | User |
+| PATCH | `/my/:id/cancel` | Hủy booking | User |
+| GET | `/staff/all` | Toàn bộ booking | Staff/Admin |
+| PATCH | `/staff/:id/confirm` | Xác nhận booking | Staff/Admin |
+| PATCH | `/staff/:id/cancel` | Hủy & hoàn vé | Staff/Admin |
 
-### Reviews
-- `POST /api/reviews` (create)
-- `GET /api/reviews/tour/:tourId` (get by tour)
+### Payments — `/api/payments`
+| Method | Endpoint | Mô tả | Role |
+|--------|----------|-------|------|
+| POST | `/vnpay/create-url` | Tạo URL thanh toán VNPAY | User |
+| GET | `/vnpay/return` | Callback từ VNPAY | Public |
+| POST | `/dev-simulate/:bookingId` | Giả lập thanh toán (**dev only**) | User |
 
-### Chatbot
-- `POST /api/chatbot/ask` (ask AI)
+### Upload — `/api/upload`
+| Method | Endpoint | Mô tả | Role |
+|--------|----------|-------|------|
+| POST | `/tour` | Upload ảnh tour → Cloudinary | Admin |
 
-### Admin
-- `GET /api/admin/dashboard`
-- `GET /api/admin/users`
-- `GET /api/admin/logs`
+### Wishlists — `/api/wishlists`
+| Method | Endpoint | Mô tả | Role |
+|--------|----------|-------|------|
+| GET | `/my` | Danh sách yêu thích | User |
+| POST | `/` | Thêm vào wishlist | User |
+| DELETE | `/my/:tourId` | Xóa khỏi wishlist | User |
 
-## 8) Quy trình thanh toán VNPAY
+### Reviews — `/api/reviews`
+| Method | Endpoint | Mô tả | Role |
+|--------|----------|-------|------|
+| POST | `/` | Viết đánh giá | User |
+| GET | `/tour/:tourId` | Đánh giá của tour | Public |
 
-1. **Customer** click "Thanh toán VNPAY" ở trang My Bookings
-2. Frontend gọi `POST /api/payments/vnpay/create-url` để lấy payment URL
-3. Backend dùng VNPAY Service để tạo URL redirect (với signed hash)
-4. Frontend redirect sang VNPAY gateway (sandbox)
-5. Khách nhập thông tin thẻ (sandbox: `9704` + `0123456789012345`)
-6. VNPAY redirect về `/payment-return` với query params
-7. Frontend hiển thị kết quả + gọi `GET /api/payments/vnpay/return` để verify
-8. Backend kiểm tra signature và cập nhật booking status
+### Articles — `/api/articles`
+| Method | Endpoint | Mô tả | Role |
+|--------|----------|-------|------|
+| GET | `/` | Danh sách bài viết | Public |
+| GET | `/:id` | Chi tiết bài viết | Public |
+| POST | `/` | Tạo bài viết | Admin |
+| PUT | `/:id` | Sửa bài viết | Admin |
+| DELETE | `/:id` | Xóa bài viết | Admin |
 
-### Thông tin sandbox VNPAY
-- **URL:** https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-- **Test Card:** 9704 + random number
-- **OTP:** Bất kỳ 6 chữ số nào
+### Admin — `/api/admin`
+| Method | Endpoint | Mô tả | Role |
+|--------|----------|-------|------|
+| GET | `/dashboard` | Thống kê tổng quan | Admin |
+| GET | `/users` | Danh sách users | Admin |
+| GET | `/logs` | System logs | Admin |
+| GET | `/bookings-report` | Báo cáo đặt tour | Admin |
 
-## 9) Quy trình upload ảnh Cloudinary
+---
 
-1. **Admin** truy cập `/admin/tours` → "Tạo tour mới"
-2. Click "Upload ảnh" → chọn file từ máy
-3. Frontend gửi FormData đến `POST /api/upload/tour`
-4. Backend nhận file via Multer, upload lên Cloudinary
-5. Lấy `image_url` từ response, lưu vào form
-6. Khi tạo tour, gửi `imageUrl` vào database
-7. Tour detail page hiển thị ảnh từ Cloudinary URL
+## Quy trình thanh toán VNPAY
 
-## 10) Quy trình Google Maps
+```
+User click "Thanh toán VNPAY"
+  → POST /api/payments/vnpay/create-url
+  → Backend tạo URL có chữ ký HMAC-SHA512
+  → Redirect sang sandbox.vnpayment.vn
+  → Nhập thẻ test: 9704 0123 4567 8909, ngày hết hạn tương lai, OTP: 123456
+  → VNPAY redirect về /payment-return?vnp_*=...
+  → Frontend gọi GET /api/payments/vnpay/return
+  → Backend verify chữ ký, cập nhật booking → paid + confirmed
+```
 
-1. **Tour Detail Page** truy cập với `latitude`, `longitude` từ DB
-2. Frontend render `<MapComponent>` component
-3. Component load Google Maps API key từ env
-4. Hiển thị map với marker tại location
+**Để test không cần VNPAY sandbox**, dùng nút **`[DEV] Giả lập thanh toán`** xuất hiện trong trang `/my-bookings` — chỉ hiển thị ở môi trường dev.
 
-Để cập nhật location:
-- Admin tạo/chỉnh tour, nhập `latitude` (vĩ độ), `longitude` (kinh độ)
-- Hoặc click trên bản đồ để tự động nhập coords (tính năng nâng cao)
+---
 
-## 11) Gợi ý phát triển tiếp
+## Tối ưu hiệu năng
+
+| Tối ưu | Chi tiết |
+|--------|---------|
+| OTP hash bằng SHA-256 | Nhanh hơn bcrypt, OTP chỉ sống 5 phút nên đủ an toàn |
+| Song song hóa DB + hash | `Promise.all` kiểm tra email trùng + hash mật khẩu cùng lúc |
+| Gửi email fire-and-forget | Response trả client ngay, email gửi nền không chờ SMTP |
+| Skeleton loading | Tour list hiển thị skeleton cards khi đang tải |
+| Scroll-to-top button | Nút cuộn lên đầu trang khi scroll xuống |
+| CSS animations | fadeSlideUp, fadeIn, scaleIn cho chuyển trang mượt |
+
+---
+
+## UX/UI nổi bật
+
+- **Logo** hiển thị trên navbar
+- **Dropdown "Giới thiệu"** với 6 trang thông tin
+- **Hiện/ẩn mật khẩu** (icon 👁️/🙈) ở đăng nhập, đăng ký, quên mật khẩu
+- **Loading spinner** trên nút gửi OTP, đăng nhập, đăng ký
+- **Skeleton loading** khi tải danh sách tour
+- **Carousel** ảnh với controls hiện khi hover
+- **Scroll-to-top** button cố định góc phải
+
+---
+
+## Tính năng dev đặc biệt
+
+| Tính năng | Mô tả |
+|-----------|-------|
+| OTP log ra console | `[Auth][DEV] OTP Code: XXXXXX` |
+| Captcha bypass | Nhập `dev_bypass` thay captcha |
+| Rate limiter tắt | Không chặn request trong dev |
+| Giả lập thanh toán | `POST /api/payments/dev-simulate/:bookingId` |
+
+---
+
+## 3rd Party Services
+
+### Gmail SMTP (OTP email)
+1. Bật 2FA cho Gmail
+2. Tạo App Password tại: https://myaccount.google.com/apppasswords
+3. Điền vào `EMAIL_USER` và `EMAIL_PASS` trong `.env`
+
+### VNPAY Sandbox
+1. Đăng ký tại: https://sandbox.vnpayment.vn/devreg/
+2. Lấy TMN Code và Secret Key
+3. Điền vào `VNPAY_TMN_CODE` và `VNPAY_HASH_SECRET`
+
+### Cloudinary (Upload ảnh)
+1. Đăng ký tại: https://cloudinary.com/
+2. Lấy Cloud Name, API Key, API Secret
+3. Điền vào các biến `CLOUDINARY_*`
+
+### Google Maps
+1. Tạo API Key tại: https://console.cloud.google.com/
+2. Bật **Maps JavaScript API**
+3. Điền vào `VITE_GOOGLE_MAPS_API_KEY` trong `frontend/.env`
+
+---
+
+## Database Schema (tóm tắt)
+
+| Bảng | Mô tả |
+|------|-------|
+| `users` | Tài khoản (role: user/staff/admin) |
+| `tours` | Tour du lịch (có latitude/longitude) |
+| `bookings` | Đơn đặt tour |
+| `reviews` | Đánh giá tour |
+| `wishlists` | Danh sách yêu thích |
+| `articles` | Bài viết/tin tức |
+| `contacts` | Form liên hệ |
+| `system_logs` | Nhật ký hệ thống |
+| `chat_messages` | Tin nhắn chat nội bộ |
+
+---
+
+## Gợi ý phát triển tiếp
 
 - [ ] Tích hợp thanh toán thật (VNPAY production)
-- [ ] Tích hợp Momo, Stripe
-- [ ] Place picker UI cho Google Maps (click map chọn location)
 - [ ] Workflow hoàn thành tour tự động để mở quyền đánh giá
 - [ ] Phân trang + filter nâng cao cho dashboard
 - [ ] Email confirmation khi booking thành công
 - [ ] SMS notification cho staff khi có booking mới
 - [ ] Export invoice PDF
-- [ ] Tour rating calculation (average)
-- [ ] Real-time chatbot improve với LLM (GPT/Claude)
+- [ ] Real-time chatbot cải thiện với LLM (GPT/Claude)

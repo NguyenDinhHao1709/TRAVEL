@@ -1,12 +1,17 @@
 const express = require('express');
-const { uploadTourImage, uploadBannerImage, uploadArticleImage } = require('../controllers/upload.controller');
-const { authenticate, authorize } = require('../middleware/auth');
+const uploadController = require('../controllers/upload.controller');
+const authenticate = require('../middleware/auth');
 const upload = require('../middleware/upload');
-
 const router = express.Router();
 
-router.post('/tour', authenticate, authorize('admin'), upload.array('files', 10), uploadTourImage);
-router.post('/banner', authenticate, authorize('admin'), upload.single('file'), uploadBannerImage);
-router.post('/article', authenticate, authorize('staff', 'admin'), upload.single('file'), uploadArticleImage);
+router.post('/tour', authenticate, upload.array('files', 10), uploadController.uploadTourImages);
+router.post('/article', authenticate, authenticate.requireRole('staff', 'admin'), upload.single('file'), (req, res, next) => {
+  req.params.folder = 'articles';
+  next();
+}, uploadController.uploadSingleImage);
+router.post('/banner', authenticate, authenticate.requireRole('admin'), upload.single('file'), (req, res, next) => {
+  req.params.folder = 'banners';
+  next();
+}, uploadController.uploadSingleImage);
 
 module.exports = router;

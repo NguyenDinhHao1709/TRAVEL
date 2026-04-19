@@ -1,64 +1,38 @@
 const cloudinary = require('cloudinary').v2;
 
-const cloudinaryConfig = {
+cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
-};
+});
 
-const getDeliveryMaxWidth = (folder = '') => {
-  const normalizedFolder = String(folder || '').toLowerCase();
-
-  if (normalizedFolder.includes('article')) return 2200;
-  if (normalizedFolder.includes('tour')) return 2560;
-  if (normalizedFolder.includes('banner')) return 2560;
-  return 2048;
-};
-
-const isCloudinaryConfigured = () => {
-  const invalidValues = ['MOCK', 'xxx', 'your_cloud_name', 'your_api_key', 'your_api_secret'];
-  return Object.values(cloudinaryConfig).every((value) => value && !invalidValues.includes(String(value).trim()));
-};
-
-cloudinary.config(cloudinaryConfig);
-
-const uploadImage = async (filePath, folder = 'travel-management') => {
-  if (!isCloudinaryConfigured()) {
-    throw new Error('Cloudinary chưa được cấu hình, fallback sang lưu local');
-  }
-
-  try {
-    const result = await cloudinary.uploader.upload(filePath, {
-      folder,
-      resource_type: 'auto'
-    });
-
-    const optimizedUrl = cloudinary.url(result.public_id, {
-      secure: true,
-      fetch_format: 'auto',
-      quality: 'auto:best',
-      dpr: 'auto',
-      flags: 'progressive',
-      transformation: [
-        {
-          crop: 'limit',
-          width: getDeliveryMaxWidth(folder)
+module.exports = {
+  uploadImage: (buffer, folder = 'tours') => {
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder, resource_type: 'image' },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve({ url: result.secure_url, publicId: result.public_id });
         }
-      ]
+      );
+      stream.end(buffer);
     });
+  },
 
-    return optimizedUrl || result.secure_url;
-  } catch (error) {
-    throw new Error(`Upload failed: ${error.message}`);
+  deleteImage: async (publicId) => {
+    return cloudinary.uploader.destroy(publicId);
+  },
+
+  isConfigured: () => {
+    const name = process.env.CLOUDINARY_CLOUD_NAME;
+    const key = process.env.CLOUDINARY_API_KEY;
+    const secret = process.env.CLOUDINARY_API_SECRET;
+    const placeholders = ['your_cloud_name', 'your_api_key', 'your_api_secret', 'xxx', ''];
+    return !!(name && key && secret &&
+      !placeholders.includes(name) &&
+      !placeholders.includes(key) &&
+      !placeholders.includes(secret)
+    );
   }
 };
-
-const deleteImage = async (publicId) => {
-  try {
-    await cloudinary.uploader.destroy(publicId);
-  } catch (error) {
-    throw new Error(`Delete failed: ${error.message}`);
-  }
-};
-
-module.exports = { uploadImage, deleteImage };

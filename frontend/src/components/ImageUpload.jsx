@@ -23,7 +23,9 @@ const ImageUpload = ({ onUploadSuccess, folder = 'tour', multiple = false }) => 
     setMessage('');
 
     try {
-      const endpoint = folder === 'banner' ? '/upload/banner' : '/upload/tour';
+      let endpoint = '/upload/tour';
+      if (folder === 'banner') endpoint = '/upload/banner';
+      else if (folder === 'article') endpoint = '/upload/article';
       const { data } = await client.post(endpoint, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (progressEvent) => {

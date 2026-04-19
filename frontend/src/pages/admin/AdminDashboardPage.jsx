@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Row, Col, Table, Form, Button, Alert, Badge, Nav, Tab } from 'react-bootstrap';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import client from '../../api/client';
@@ -41,7 +42,6 @@ const paymentMethodLabel = {
   card: 'Thẻ',
   bank_transfer: 'Chuyển khoản',
   vnpay: 'VNPay',
-  momo: 'MoMo'
 };
 
 const toVietnameseStatus = (value, map) => map[String(value || '').toLowerCase()] || value || '-';
@@ -51,11 +51,35 @@ const renderStars = (value = 0) => {
 };
 
 const AdminDashboardPage = () => {
+  const navigate = useNavigate();
   const [dashboard, setDashboard] = useState(null);
+  // Users
   const [users, setUsers] = useState([]);
+  const [userPage, setUserPage] = useState(1);
+  const [userTotalPages, setUserTotalPages] = useState(1);
+  const [userTotal, setUserTotal] = useState(0);
+  const [userFilter, setUserFilter] = useState({ search: '', role: '', status: '' });
+
+  // Reviews
   const [reviews, setReviews] = useState([]);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewTotalPages, setReviewTotalPages] = useState(1);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [reviewFilter, setReviewFilter] = useState({ search: '', status: '', rating: '' });
+
+  // Logs
   const [logs, setLogs] = useState([]);
+  const [logPage, setLogPage] = useState(1);
+  const [logTotalPages, setLogTotalPages] = useState(1);
+  const [logTotal, setLogTotal] = useState(0);
+  const [logFilter, setLogFilter] = useState({ search: '', role: '', action: '' });
+
+  // Contacts
   const [contactInbox, setContactInbox] = useState({ unreadCount: 0, items: [] });
+  const [contactPage, setContactPage] = useState(1);
+  const [contactTotalPages, setContactTotalPages] = useState(1);
+  const [contactTotal, setContactTotal] = useState(0);
+  const [contactFilter, setContactFilter] = useState({ search: '', is_read: '', email: '', phone: '' });
   const [bookingReport, setBookingReport] = useState(null);
   const [userActionMessage, setUserActionMessage] = useState('');
   const [selectedUserDetail, setSelectedUserDetail] = useState(null);
@@ -79,20 +103,54 @@ const AdminDashboardPage = () => {
     user: 'Khách hàng'
   };
 
-  const load = async () => {
-    const [dashRes, userRes, reviewRes, logRes, contactRes] = await Promise.all([
-      client.get('/admin/dashboard'),
-      client.get('/admin/users'),
-      client.get('/reviews/admin/all'),
-      client.get('/admin/logs'),
-      client.get('/contact/messages')
-    ]);
+  // Load dashboard
+  const loadDashboard = async () => {
+    const { data } = await client.get('/admin/dashboard');
+    setDashboard(data);
+  };
 
-    setDashboard(dashRes.data);
-    setUsers(userRes.data);
-    setReviews(reviewRes.data);
-    setLogs(logRes.data);
-    setContactInbox(contactRes.data);
+  // Load users
+  const loadUsers = async (page = userPage, filter = userFilter) => {
+    const { data } = await client.get('/admin/users', {
+      params: { page, limit: 10, ...filter }
+    });
+    setUsers(data.data);
+    setUserTotal(data.total);
+    setUserPage(data.page);
+    setUserTotalPages(data.totalPages);
+  };
+
+  // Load reviews
+  const loadReviews = async (page = reviewPage, filter = reviewFilter) => {
+    const { data } = await client.get('/reviews/admin/all', {
+      params: { page, limit: 10, ...filter }
+    });
+    setReviews(data.data);
+    setReviewTotal(data.total);
+    setReviewPage(data.page);
+    setReviewTotalPages(data.totalPages);
+  };
+
+  // Load logs
+  const loadLogs = async (page = logPage, filter = logFilter) => {
+    const { data } = await client.get('/admin/logs', {
+      params: { page, limit: 10, ...filter }
+    });
+    setLogs(data.data);
+    setLogTotal(data.total);
+    setLogPage(data.page);
+    setLogTotalPages(data.totalPages);
+  };
+
+  // Load contacts
+  const loadContacts = async (page = contactPage, filter = contactFilter) => {
+    const { data } = await client.get('/contact/messages', {
+      params: { page, limit: 10, ...filter }
+    });
+    setContactInbox({ unreadCount: data.unreadCount, items: data.items });
+    setContactTotal(data.total);
+    setContactPage(data.page);
+    setContactTotalPages(data.totalPages);
   };
 
   const markContactAsRead = async (id) => {
@@ -201,11 +259,23 @@ const AdminDashboardPage = () => {
     event.preventDefault();
     await loadBookingReport();
   };
+      // (Đã khai báo logFilter ở đầu file, xóa dòng này)
 
   useEffect(() => {
-    load();
+    loadDashboard();
+    loadUsers(1, userFilter);
+    loadReviews(1, reviewFilter);
+    loadLogs(1, logFilter);
+    loadContacts(1, contactFilter);
     loadBookingReport();
+    // eslint-disable-next-line
   }, []);
+
+  // Reload when filter/page changes
+  useEffect(() => { loadUsers(userPage, userFilter); }, [userPage, userFilter]);
+  useEffect(() => { loadReviews(reviewPage, reviewFilter); }, [reviewPage, reviewFilter]);
+  useEffect(() => { loadLogs(logPage, logFilter); }, [logPage, logFilter]);
+  useEffect(() => { loadContacts(contactPage, contactFilter); }, [contactPage, contactFilter]);
 
   if (!dashboard) {
     return <p>Đang tải...</p>;
@@ -229,7 +299,6 @@ const AdminDashboardPage = () => {
   return (
     <>
       <h3 className="mb-3">Bảng điều khiển quản trị</h3>
-
       <Tab.Container defaultActiveKey="overview">
         <Nav variant="tabs" className="mb-3 app-scroll-tabs">
           <Nav.Item>
@@ -255,6 +324,12 @@ const AdminDashboardPage = () => {
           <Nav.Item>
             <Nav.Link eventKey="logs">Nhật ký</Nav.Link>
           </Nav.Item>
+          <Nav.Item>
+            <Nav.Link onClick={() => navigate('/admin/tours')} style={{ cursor: 'pointer' }}>Quản lý Tour</Nav.Link>
+          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link onClick={() => navigate('/admin/articles')} style={{ cursor: 'pointer' }}>Quản lý Bài viết</Nav.Link>
+          </Nav.Item>
         </Nav>
 
         <Tab.Content>
@@ -263,7 +338,7 @@ const AdminDashboardPage = () => {
               <Col md={3}><Card body>Tổng người dùng: <strong>{dashboard.totalUsers}</strong></Card></Col>
               <Col md={3}><Card body>Tổng tour: <strong>{dashboard.totalTours}</strong></Card></Col>
               <Col md={3}><Card body>Tổng đơn đặt tour: <strong>{dashboard.totalBookings}</strong></Card></Col>
-              <Col md={3}><Card body>Doanh thu: <strong>{Number(dashboard.revenue).toLocaleString()} VND</strong></Card></Col>
+              <Col md={3}><Card body>Doanh thu: <strong>{Number(dashboard.totalRevenue || dashboard.revenue || 0).toLocaleString()} VND</strong></Card></Col>
             </Row>
 
             <Card className="mb-4">
@@ -409,6 +484,29 @@ const AdminDashboardPage = () => {
                     {userActionMessage}
                   </Alert>
                 )}
+                {/* Bộ lọc users */}
+                <Form className="mb-3" onSubmit={e => { e.preventDefault(); setUserPage(1); loadUsers(1, userFilter); }}>
+                  <Row className="g-2 align-items-end">
+                    <Col md={3}><Form.Control placeholder="Tìm tên/email" value={userFilter.search} onChange={e => setUserFilter(f => ({ ...f, search: e.target.value }))} /></Col>
+                    <Col md={2}>
+                      <Form.Select value={userFilter.role} onChange={e => setUserFilter(f => ({ ...f, role: e.target.value }))}>
+                        <option value="">Tất cả vai trò</option>
+                        <option value="admin">Admin</option>
+                        <option value="staff">Staff</option>
+                        <option value="user">User</option>
+                      </Form.Select>
+                    </Col>
+                    <Col md={2}>
+                      <Form.Select value={userFilter.status} onChange={e => setUserFilter(f => ({ ...f, status: e.target.value }))}>
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="locked">Đang khóa</option>
+                        <option value="deleted">Đã xóa</option>
+                      </Form.Select>
+                    </Col>
+                    <Col md={2}><Button type="submit" className="w-100">Lọc</Button></Col>
+                  </Row>
+                </Form>
                 <Table striped bordered hover responsive>
                   <thead>
                     <tr>
@@ -441,25 +539,21 @@ const AdminDashboardPage = () => {
                             <Button size="sm" variant="outline-primary" onClick={() => viewUserDetail(item.id)}>
                               Chi tiết
                             </Button>
-
                             {Number(item.is_deleted || 0) === 0 && Number(item.is_locked || 0) === 0 && (
                               <Button size="sm" variant="outline-warning" onClick={() => lockUser(item.id)}>
                                 Khóa
                               </Button>
                             )}
-
                             {Number(item.is_deleted || 0) === 0 && Number(item.is_locked || 0) === 1 && (
                               <Button size="sm" variant="outline-success" onClick={() => unlockUser(item.id)}>
                                 Mở khóa
                               </Button>
                             )}
-
                             {Number(item.is_deleted || 0) === 0 && (
                               <Button size="sm" variant="outline-danger" onClick={() => hardDeleteUser(item.id)}>
                                 Xóa vĩnh viễn
                               </Button>
                             )}
-
                             {Number(item.is_deleted || 0) === 0 && (
                               <Button size="sm" variant="outline-dark" onClick={() => resetPassword(item.id, item.email)}>
                                 Reset mật khẩu
@@ -471,9 +565,16 @@ const AdminDashboardPage = () => {
                     ))}
                   </tbody>
                 </Table>
+                {/* Phân trang users */}
+                <div className="d-flex justify-content-between align-items-center mt-2">
+                  <div>Tổng: {userTotal} | Trang {userPage}/{userTotalPages}</div>
+                  <div>
+                    <Button size="sm" disabled={userPage === 1} onClick={() => setUserPage(p => Math.max(1, p - 1))}>Trước</Button>{' '}
+                    <Button size="sm" disabled={userPage === userTotalPages} onClick={() => setUserPage(p => Math.min(userTotalPages, p + 1))}>Sau</Button>
+                  </div>
+                </div>
 
                 {loadingUserDetail && <p className="mb-0">Đang tải chi tiết người dùng...</p>}
-
                 {selectedUserDetail && !loadingUserDetail && (
                   <Card className="mt-3">
                     <Card.Body>
@@ -486,7 +587,8 @@ const AdminDashboardPage = () => {
                         <Col md={3}><Card body>Khóa: <strong>{Number(selectedUserDetail.user.is_locked || 0) === 1 ? 'Có' : 'Không'}</strong></Card></Col>
                         <Col md={3}><Card body>Đã xóa: <strong>{Number(selectedUserDetail.user.is_deleted || 0) === 1 ? 'Có' : 'Không'}</strong></Card></Col>
                       </Row>
-
+                      {!['staff', 'admin'].includes(selectedUserDetail.user?.role) && (
+                        <>
                       <h6>Lịch sử đặt tour</h6>
                       <Table striped bordered hover responsive className="mb-3">
                         <thead>
@@ -501,10 +603,10 @@ const AdminDashboardPage = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedUserDetail.bookings.length === 0 && (
+                          {(selectedUserDetail.bookings || []).length === 0 && (
                             <tr><td colSpan={7} className="text-center">Chưa có dữ liệu</td></tr>
                           )}
-                          {selectedUserDetail.bookings.map((booking) => (
+                          {(selectedUserDetail.bookings || []).map((booking) => (
                             <tr key={`booking-${booking.id}`}>
                               <td>{booking.id}</td>
                               <td>{booking.tour_title || '-'}</td>
@@ -517,7 +619,6 @@ const AdminDashboardPage = () => {
                           ))}
                         </tbody>
                       </Table>
-
                       <h6>Lịch sử thanh toán</h6>
                       <Table striped bordered hover responsive className="mb-3">
                         <thead>
@@ -531,10 +632,10 @@ const AdminDashboardPage = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedUserDetail.payments.length === 0 && (
+                          {(selectedUserDetail.payments || []).length === 0 && (
                             <tr><td colSpan={6} className="text-center">Chưa có dữ liệu</td></tr>
                           )}
-                          {selectedUserDetail.payments.map((payment) => (
+                          {(selectedUserDetail.payments || []).map((payment) => (
                             <tr key={`payment-${payment.id}`}>
                               <td>{payment.id}</td>
                               <td>{payment.booking_id}</td>
@@ -546,9 +647,8 @@ const AdminDashboardPage = () => {
                           ))}
                         </tbody>
                       </Table>
-
                       <h6>Lịch sử đánh giá</h6>
-                      <Table striped bordered hover responsive className="mb-0">
+                      <Table striped bordered hover responsive className="mb-3">
                         <thead>
                           <tr>
                             <th>ID</th>
@@ -559,10 +659,10 @@ const AdminDashboardPage = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {selectedUserDetail.reviews.length === 0 && (
+                          {(selectedUserDetail.reviews || []).length === 0 && (
                             <tr><td colSpan={5} className="text-center">Chưa có dữ liệu</td></tr>
                           )}
-                          {selectedUserDetail.reviews.map((review) => (
+                          {(selectedUserDetail.reviews || []).map((review) => (
                             <tr key={`review-${review.id}`}>
                               <td>{review.id}</td>
                               <td>{review.tour_title || '-'}</td>
@@ -573,6 +673,49 @@ const AdminDashboardPage = () => {
                           ))}
                         </tbody>
                       </Table>
+                        </>
+                      )}
+
+                      {/* Hiển thị booking đã xử lý cho staff/admin */}
+                      {['staff', 'admin'].includes(selectedUserDetail.user?.role) && (
+                        <>
+                          <h6 className="mt-2">
+                            Booking đã xử lý
+                            <span className="ms-2 badge bg-secondary">{(selectedUserDetail.handledBookings || []).length}</span>
+                          </h6>
+                          <Table striped bordered hover responsive className="mb-0">
+                            <thead>
+                              <tr>
+                                <th>ID</th>
+                                <th>Tour</th>
+                                <th>Khách hàng</th>
+                                <th>Số người</th>
+                                <th>Tổng tiền</th>
+                                <th>Trạng thái đặt</th>
+                                <th>Thanh toán</th>
+                                <th>Thời gian xử lý</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(selectedUserDetail.handledBookings || []).length === 0 && (
+                                <tr><td colSpan={8} className="text-center">Chưa xử lý booking nào</td></tr>
+                              )}
+                              {(selectedUserDetail.handledBookings || []).map((b) => (
+                                <tr key={`handled-${b.id}`}>
+                                  <td>{b.id}</td>
+                                  <td>{b.tour_title || '-'}</td>
+                                  <td>{b.customer_name || '-'}<br /><small className="text-muted">{b.customer_email}</small></td>
+                                  <td>{b.people_count}</td>
+                                  <td>{Number(b.total_amount || 0).toLocaleString()} VND</td>
+                                  <td>{toVietnameseStatus(b.booking_status, bookingStatusLabel)}</td>
+                                  <td>{toVietnameseStatus(b.payment_status, paymentStatusLabel)}</td>
+                                  <td>{formatDateTimeVN(b.updated_at)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </Table>
+                        </>
+                      )}
                     </Card.Body>
                   </Card>
                 )}
@@ -583,7 +726,44 @@ const AdminDashboardPage = () => {
           <Tab.Pane eventKey="reviews">
             <Card className="mb-4">
               <Card.Body>
-                <h5>Quản lý đánh giá</h5>
+                <h5 className="mb-3">Quản lý đánh giá</h5>
+
+                {/* Filter */}
+                <Form className="mb-3">
+                  <Row className="g-2">
+                    <Col md={4}>
+                      <Form.Control
+                        placeholder="Tìm theo bình luận hoặc tên người dùng"
+                        value={reviewFilter.search}
+                        onChange={(e) => setReviewFilter({ ...reviewFilter, search: e.target.value })}
+                      />
+                    </Col>
+                    <Col md={3}>
+                      <Form.Select
+                        value={reviewFilter.status}
+                        onChange={(e) => setReviewFilter({ ...reviewFilter, status: e.target.value })}
+                      >
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="approved">Đã duyệt</option>
+                        <option value="pending">Chờ duyệt</option>
+                        <option value="rejected">Đã từ chối</option>
+                      </Form.Select>
+                    </Col>
+                    <Col md={2}>
+                      <Form.Select
+                        value={reviewFilter.rating}
+                        onChange={(e) => setReviewFilter({ ...reviewFilter, rating: e.target.value })}
+                      >
+                        <option value="">Tất cả sao</option>
+                        {[5, 4, 3, 2, 1].map(s => <option key={s} value={s}>{s} sao</option>)}
+                      </Form.Select>
+                    </Col>
+                    <Col md={2}>
+                      <Button onClick={() => loadReviews(1, reviewFilter)}>Lọc</Button>
+                    </Col>
+                  </Row>
+                </Form>
+
                 <Table striped bordered hover responsive>
                   <thead>
                     <tr>
@@ -591,21 +771,63 @@ const AdminDashboardPage = () => {
                       <th>Người dùng</th>
                       <th>Tour</th>
                       <th>Sao</th>
+                      <th>Bình luận</th>
+                      <th>Phản hồi</th>
                       <th>Trạng thái</th>
+                      <th>Thời gian</th>
+                      <th>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
+                    {reviews.length === 0 && (
+                      <tr><td colSpan={9} className="text-center">Không có dữ liệu</td></tr>
+                    )}
                     {reviews.map((review) => (
                       <tr key={review.id}>
                         <td>{review.id}</td>
-                        <td>{review.full_name}</td>
-                        <td>{review.title}</td>
+                        <td>{review.user_name || '-'}</td>
+                        <td>{review.tour_title || '-'}</td>
                         <td style={{ color: '#f59e0b', fontWeight: 700 }}>{renderStars(review.rating)}</td>
-                        <td>{review.status}</td>
+                        <td style={{ maxWidth: 200 }}>{review.comment || '-'}</td>
+                        <td style={{ maxWidth: 200 }}>{review.staff_reply || '-'}</td>
+                        <td>
+                          <Badge bg={review.status === 'approved' ? 'success' : review.status === 'rejected' ? 'danger' : 'warning'}>
+                            {review.status === 'approved' ? 'Đã duyệt' : review.status === 'rejected' ? 'Từ chối' : 'Chờ duyệt'}
+                          </Badge>
+                        </td>
+                        <td>{formatDateTimeVN(review.created_at)}</td>
+                        <td>
+                          <div className="d-flex gap-1 flex-wrap">
+                            {review.status === 'approved' ? (
+                              <Button size="sm" variant="secondary" onClick={async () => {
+                                await client.put(`/reviews/${review.id}`, { status: 'rejected' });
+                                loadReviews(reviewPage, reviewFilter);
+                              }}>Ẩn</Button>
+                            ) : (
+                              <Button size="sm" variant="success" onClick={async () => {
+                                await client.put(`/reviews/${review.id}`, { status: 'approved' });
+                                loadReviews(reviewPage, reviewFilter);
+                              }}>Hiện</Button>
+                            )}
+                            <Button size="sm" variant="outline-danger" onClick={async () => {
+                              if (!window.confirm('Xóa đánh giá này?')) return;
+                              await client.delete(`/reviews/${review.id}`);
+                              loadReviews(reviewPage, reviewFilter);
+                            }}>Xóa</Button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </Table>
+
+                <div className="d-flex justify-content-between align-items-center mt-2">
+                  <div>Tổng: {reviewTotal} | Trang {reviewPage}/{reviewTotalPages}</div>
+                  <div>
+                    <Button size="sm" disabled={reviewPage === 1} onClick={() => setReviewPage(p => Math.max(1, p - 1))}>Trước</Button>{' '}
+                    <Button size="sm" disabled={reviewPage === reviewTotalPages} onClick={() => setReviewPage(p => Math.min(reviewTotalPages, p + 1))}>Sau</Button>
+                  </div>
+                </div>
               </Card.Body>
             </Card>
           </Tab.Pane>

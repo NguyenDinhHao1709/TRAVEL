@@ -1,74 +1,47 @@
-const { uploadImage } = require('../services/cloudinary.service');
-const fs = require('fs').promises;
+const cloudinaryService = require('../services/cloudinary.service');
 const path = require('path');
+const fs = require('fs');
 
-const getLocalImageUrl = (req, filePath) => {
-  const fileName = path.basename(filePath);
-  return `${req.protocol}://${req.get('host')}/uploads/${fileName}`;
-};
+const UPLOAD_DIR = path.join(__dirname, '../../../uploads');
 
-const uploadSingleFile = async (req, file, folderName) => {
-  try {
-    const imageUrl = await uploadImage(file.path, folderName);
-    await fs.unlink(file.path);
-    return imageUrl;
-  } catch (cloudinaryError) {
-    return getLocalImageUrl(req, file.path);
+function saveLocalFile(buffer, originalname) {
+  if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  const ext = path.extname(originalname) || '.jpg';
+  const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, filename), buffer);
+  return `/uploads/${filename}`;
+}
+
+exports.uploadTourImages = async (req, res) => {
+  const files = req.files;
+  if (!files || files.length === 0) {
+    return res.status(400).json({ message: 'Không có file nào được tải lên' });
   }
-};
 
-const uploadTourImage = async (req, res) => {
-  try {
-    const files = req.files || (req.file ? [req.file] : []);
-
-    if (!files.length) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
-
-    const imageUrls = await Promise.all(
-      files.map((file) => uploadSingleFile(req, file, 'travel-tours'))
+  if (cloudinaryService.isConfigured()) {
+    const uploadResults = await Promise.all(
+      files.map((file) => cloudinaryService.uploadImage(file.buffer, 'tours'))
     );
-
-    return res.status(200).json({
-      imageUrl: imageUrls[0],
-      imageUrls,
-      note: 'Uploaded successfully'
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+    const imageUrls = uploadResults.map((r) => r.url);
+    return res.json({ imageUrls, imageUrl: imageUrls[0] });
   }
+
+  // Fallback: lưu local khi Cloudinary chưa cấu hình
+  const imageUrls = files.map((file) => saveLocalFile(file.buffer, file.originalname));
+  return res.json({ imageUrls, imageUrl: imageUrls[0] });
 };
 
-const uploadBannerImage = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
+exports.uploadSingleImage = async (req, res) => {
+  const file = req.file;
+  if (!file) return res.status(400).json({ message: 'Không có file nào được tải lên' });
 
-    try {
-      const imageUrl = await uploadImage(req.file.path, 'travel-banners');
-      await fs.unlink(req.file.path);
-      return res.status(200).json({ imageUrl });
-    } catch (cloudinaryError) {
-      const imageUrl = getLocalImageUrl(req, req.file.path);
-      return res.status(200).json({ imageUrl, note: 'Uploaded to local storage because Cloudinary is not configured' });
-    }
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  if (cloudinaryService.isConfigured()) {
+    const folder = req.params.folder || 'uploads';
+    const result = await cloudinaryService.uploadImage(file.buffer, folder);
+    return res.json({ imageUrl: result.url });
   }
+
+  // Fallback: lưu local
+  const imageUrl = saveLocalFile(file.buffer, file.originalname);
+  return res.json({ imageUrl });
 };
-
-const uploadArticleImage = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
-
-    const imageUrl = await uploadSingleFile(req, req.file, 'travel-articles');
-    return res.status(200).json({ imageUrl });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-module.exports = { uploadTourImage, uploadBannerImage, uploadArticleImage };

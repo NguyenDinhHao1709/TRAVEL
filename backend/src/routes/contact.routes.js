@@ -1,15 +1,10 @@
 const express = require('express');
-const {
-  createContactMessage,
-  getContactMessages,
-  markContactMessageAsRead
-} = require('../controllers/contact.controller');
-const { authenticate, authorize } = require('../middleware/auth');
-
+const contactController = require('../controllers/contact.controller');
+const authenticate = require('../middleware/auth');
 const router = express.Router();
 
-router.post('/', createContactMessage);
-router.get('/messages', authenticate, authorize('staff', 'admin'), getContactMessages);
-router.patch('/messages/:id/read', authenticate, authorize('staff', 'admin'), markContactMessageAsRead);
+router.post('/', contactController.sendContactMessage);
+router.get('/messages', authenticate, authenticate.requireRole('admin', 'staff'), contactController.getContactMessages);
+router.patch('/messages/:id/read', authenticate, authenticate.requireRole('admin', 'staff'), contactController.markContactAsRead);
 
 module.exports = router;

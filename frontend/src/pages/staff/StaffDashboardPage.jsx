@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card, Table, Button, Alert, Badge, Nav, Tab, Form } from 'react-bootstrap';
 import { io } from 'socket.io-client';
+import * as XLSX from 'xlsx';
 import client from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 const formatDateTimeVN = (value) => {
   if (!value) return '';
@@ -30,6 +32,7 @@ const renderStars = (value = 0) => {
 };
 
 const StaffDashboardPage = () => {
+  const { user } = useAuth();
   const [bookings, setBookings] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [contactInbox, setContactInbox] = useState({ unreadCount: 0, items: [] });
@@ -89,6 +92,11 @@ const StaffDashboardPage = () => {
     socketRef.current.on('new_message', (msg) => {
       setChatMessages((prev) => {
         if (prev.find((m) => m.id === msg.id)) return prev;
+        // replace temp optimistic message from same sender
+        const tempIdx = prev.findIndex((m) => String(m.id).startsWith('temp_') && m.sender_id === msg.sender_id);
+        if (tempIdx >= 0) {
+          return [...prev.slice(0, tempIdx), msg, ...prev.slice(tempIdx + 1)];
+        }
         return [...prev, msg];
       });
     });
@@ -145,10 +153,28 @@ const StaffDashboardPage = () => {
     if (!chatInput.trim() || !selectedRoom) return;
     const text = chatInput.trim();
     setChatInput('');
-    try {
-      await client.post(`/chat/rooms/${selectedRoom.id}/messages`, { message: text });
-    } catch {
-      setChatInput(text);
+
+    const tempMsg = {
+      id: `temp_${Date.now()}`,
+      room_id: selectedRoom.id,
+      sender_id: user?.id,
+      sender_role: user?.role || 'staff',
+      sender_name: user?.fullName || 'Nh\u00e2n vi\u00ean',
+      message: text,
+      created_at: new Date().toISOString()
+    };
+    setChatMessages((prev) => [...prev, tempMsg]);
+
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('send_message', { roomId: selectedRoom.id, message: text });
+    } else {
+      try {
+        const { data: savedMsg } = await client.post(`/chat/rooms/${selectedRoom.id}/messages`, { message: text });
+        setChatMessages((prev) => prev.map((m) => m.id === tempMsg.id ? savedMsg : m));
+      } catch {
+        setChatInput(text);
+        setChatMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
+      }
     }
   };
 
@@ -246,6 +272,36 @@ const StaffDashboardPage = () => {
           <Tab.Pane eventKey="bookings">
             <Card>
               <Card.Body>
+                <div className="d-flex justify-content-end mb-3">
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={() => {
+                      const exportData = bookings.map((b, i) => ({
+                        'STT': i + 1,
+                        'Mã đặt tour': b.id,
+                        'Khách hàng': b.full_name || '',
+                        'Email': b.email || '',
+                        'Tour': b.title || '',
+                        'Số người': b.num_people || 1,
+                        'Tổng tiền': Number(b.total_price || 0),
+                        'Trạng thái đặt tour': bookingStatusLabel[b.booking_status] || b.booking_status,
+                        'Trạng thái thanh toán': paymentStatusLabel[b.payment_status] || b.payment_status,
+                        'Ngày đặt': b.created_at ? formatDateTimeVN(b.created_at) : '',
+                      }));
+                      const ws = XLSX.utils.json_to_sheet(exportData);
+                      ws['!cols'] = [
+                        { wch: 5 }, { wch: 10 }, { wch: 22 }, { wch: 28 }, { wch: 30 },
+                        { wch: 10 }, { wch: 15 }, { wch: 18 }, { wch: 20 }, { wch: 22 }
+                      ];
+                      const wb = XLSX.utils.book_new();
+                      XLSX.utils.book_append_sheet(wb, ws, 'Dẫt tour');
+                      XLSX.writeFile(wb, `bao-cao-dat-tour-${new Date().toISOString().slice(0,10)}.xlsx`);
+                    }}
+                  >
+                    📁 Xuất Excel
+                  </Button>
+                </div>
                 <Table striped bordered hover responsive>
                   <thead>
                     <tr>
@@ -489,44 +545,21 @@ const StaffDashboardPage = () => {
                       <th>Tour</th>
                       <th>Sao</th>
                       <th>Bình luận</th>
-                      <th>Phản hồi nhân viên</th>
                     </tr>
                   </thead>
                   <tbody>
                     {reviews.map((review) => (
                       <tr key={review.id}>
                         <td>{review.id}</td>
-                        <td>{review.full_name}</td>
-                        <td>{review.title}</td>
+                        <td>{review.user_name || '-'}</td>
+                        <td>{review.tour_title || '-'}</td>
                         <td style={{ color: '#f59e0b', fontWeight: 700 }}>{renderStars(review.rating)}</td>
                         <td style={{ maxWidth: 320 }}>{review.comment || '-'}</td>
-                        <td style={{ minWidth: 320 }}>
-                          <Form.Control
-                            as="textarea"
-                            rows={2}
-                            value={getReplyDraft(review)}
-                            onChange={(e) => setReplyDraft(review.id, e.target.value)}
-                            placeholder="Nhập phản hồi cho khách hàng"
-                            className="mb-2"
-                          />
-                          {review.reply_staff_name && review.staff_reply_at && (
-                            <small className="text-muted d-block mb-2">
-                              Đã phản hồi bởi {review.reply_staff_name} lúc {formatDateTimeVN(review.staff_reply_at)}
-                            </small>
-                          )}
-                          <Button
-                            size="sm"
-                            onClick={() => replyReview(review)}
-                            disabled={replySubmittingId === review.id}
-                          >
-                            {replySubmittingId === review.id ? 'Đang gửi...' : 'Gửi phản hồi'}
-                          </Button>
-                        </td>
                       </tr>
                     ))}
                     {reviews.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="text-center">Chưa có đánh giá nào</td>
+                        <td colSpan={5} className="text-center">Chưa có đánh giá nào</td>
                       </tr>
                     )}
                   </tbody>

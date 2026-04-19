@@ -1,16 +1,21 @@
 const express = require('express');
-const router = express.Router();
-const { authenticate, authorize } = require('../middleware/auth');
 const chatController = require('../controllers/chat.controller');
+const authenticate = require('../middleware/auth');
+const router = express.Router();
 
-router.get('/room', authenticate, authorize('user'), chatController.getOrCreateRoom);
+// User: get or create their chat room
+router.get('/room', authenticate, chatController.getOrCreateRoom);
 
-router.get('/rooms/:roomId/messages', authenticate, chatController.getMessages);
+// Staff/Admin: get all rooms
+router.get('/rooms', authenticate, authenticate.requireRole('staff', 'admin'), chatController.getAllRooms);
 
+// Get messages for a room
+router.get('/rooms/:roomId/messages', authenticate, chatController.getRoomMessages);
+
+// Send message to a room
 router.post('/rooms/:roomId/messages', authenticate, chatController.sendMessage);
 
-router.get('/rooms', authenticate, authorize('staff', 'admin'), chatController.getAllRooms);
-
-router.patch('/rooms/:roomId/close', authenticate, authorize('staff', 'admin'), chatController.closeRoom);
+// Staff/Admin: close room
+router.patch('/rooms/:roomId/close', authenticate, authenticate.requireRole('staff', 'admin'), chatController.closeRoom);
 
 module.exports = router;

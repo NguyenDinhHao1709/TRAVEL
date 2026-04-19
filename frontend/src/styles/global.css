@@ -16,6 +16,46 @@
   --radius-btn: 11px;
   --shadow-card: 0 8px 26px rgba(21, 101, 192, 0.08);
   --shadow-card-hover: 0 16px 40px rgba(21, 101, 192, 0.16);
+  --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================
+   SMOOTH SCROLL & SELECTION
+   ============================================ */
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: rgba(21, 101, 192, 0.2);
+  color: var(--color-text);
+}
+
+/* ============================================
+   PAGE TRANSITIONS
+   ============================================ */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.app-content {
+  animation: fadeSlideUp 0.4s var(--transition-smooth) both;
 }
 
 /* ============================================
@@ -29,6 +69,9 @@ body {
   color: var(--color-text);
   font-family: 'Nunito', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -54,6 +97,17 @@ h1, h2, h3, h4, h5, h6 {
   padding-bottom: 2.2rem;
 }
 
+/* Stagger child animations */
+.app-content section,
+.app-content > .row,
+.app-content > .card {
+  animation: fadeSlideUp 0.45s var(--transition-smooth) both;
+}
+.app-content section:nth-child(2),
+.app-content > .row:nth-child(2) { animation-delay: 0.06s; }
+.app-content section:nth-child(3),
+.app-content > .row:nth-child(3) { animation-delay: 0.12s; }
+
 .container {
   max-width: 1260px;
 }
@@ -72,6 +126,9 @@ h1, h2, h3, h4, h5, h6 {
   padding-top: 0.52rem;
   padding-bottom: 0.52rem;
   margin-bottom: 1.4rem;
+  transition: box-shadow 0.3s var(--transition-smooth), padding 0.3s var(--transition-smooth);
+  backdrop-filter: blur(12px);
+  z-index: 1050;
 }
 
 .app-brand {
@@ -112,13 +169,51 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 8px;
   padding: 0.4rem 0.72rem !important;
   font-size: 0.91rem;
-  transition: background 0.18s, color 0.18s;
+  transition: background 0.22s var(--transition-smooth), color 0.22s var(--transition-smooth), transform 0.18s;
+  position: relative;
 }
 
 .app-main-nav .nav-link:hover,
 .app-main-nav .nav-link:focus {
   background: rgba(255, 255, 255, 0.12);
   color: #fff !important;
+  transform: translateY(-1px);
+}
+
+.app-main-nav .nav-link.active,
+.app-main-nav .nav-link[aria-current="page"] {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff !important;
+}
+
+/* NavDropdown smooth animation */
+.app-main-nav .dropdown-menu {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem;
+  animation: scaleIn 0.2s var(--transition-smooth) both;
+  transform-origin: top center;
+  overflow: hidden;
+}
+
+.app-main-nav .dropdown-item {
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background 0.15s, color 0.15s, padding-left 0.2s;
+}
+
+.app-main-nav .dropdown-item:hover {
+  background: linear-gradient(135deg, #e8f4fd, #f0f7ff);
+  color: var(--color-primary);
+  padding-left: 1.2rem;
+}
+
+.app-main-nav .dropdown-divider {
+  margin: 0.25rem 0.5rem;
+  opacity: 0.15;
 }
 
 .app-user-panel {
@@ -157,11 +252,12 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card);
   background: var(--color-surface);
-  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  transition: transform 0.3s var(--transition-smooth), box-shadow 0.3s var(--transition-smooth);
+  will-change: transform;
 }
 
 .card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px);
   box-shadow: var(--shadow-card-hover);
 }
 
@@ -185,8 +281,15 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 700;
   font-size: 0.92rem;
   letter-spacing: 0.1px;
-  transition: all 0.18s ease;
+  transition: all 0.22s var(--transition-smooth);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:active {
+  transform: scale(0.97);
+  transition-duration: 0.08s;
 }
 
 .btn-primary {
@@ -224,14 +327,15 @@ h1, h2, h3, h4, h5, h6 {
   background: #fafdff;
   font-size: 0.94rem;
   padding: 0.56rem 0.88rem;
-  transition: border-color 0.18s, box-shadow 0.18s;
+  transition: border-color 0.25s var(--transition-smooth), box-shadow 0.25s var(--transition-smooth), background 0.25s;
 }
 
 .form-control:focus,
 .form-select:focus {
   border-color: #1565c0;
-  box-shadow: 0 0 0 0.2rem rgba(21, 101, 192, 0.14);
+  box-shadow: 0 0 0 0.25rem rgba(21, 101, 192, 0.12);
   background: #fff;
+  outline: none;
 }
 
 .form-label {
@@ -271,7 +375,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .table tbody tr:hover > * {
   background-color: #edf4ff !important;
-  transition: background 0.14s;
+  transition: background 0.2s var(--transition-smooth);
 }
 
 /* ============================================
@@ -358,12 +462,12 @@ h1, h2, h3, h4, h5, h6 {
 
 .featured-tour-card .card-img-top,
 .tour-list-card .card-img-top {
-  transition: transform 0.34s ease;
+  transition: transform 0.5s var(--transition-smooth);
 }
 
 .featured-tour-card:hover .card-img-top,
 .tour-list-card:hover .card-img-top {
-  transform: scale(1.05);
+  transform: scale(1.07);
 }
 
 .featured-tour-placeholder {
@@ -444,12 +548,13 @@ h1, h2, h3, h4, h5, h6 {
 .footer-contact-list a {
   color: #93c5fd;
   text-decoration: none;
-  transition: color 0.15s;
+  transition: color 0.2s var(--transition-smooth), padding-left 0.2s;
 }
 
 .footer-contact-list a:hover {
   color: #fff;
   text-decoration: underline;
+  padding-left: 2px;
 }
 
 .footer-divider {
@@ -696,4 +801,122 @@ h1, h2, h3, h4, h5, h6 {
   .contact-branch-list {
     max-height: none;
   }
+}
+
+/* ============================================
+   SCROLL TO TOP BUTTON
+   ============================================ */
+.scroll-to-top-btn {
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  z-index: 1040;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #1565c0, #0d47a1);
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 800;
+  box-shadow: 0 4px 16px rgba(13, 71, 161, 0.4);
+  cursor: pointer;
+  transition: transform 0.25s var(--transition-smooth), opacity 0.25s, box-shadow 0.25s;
+  animation: fadeSlideUp 0.3s var(--transition-smooth) both;
+}
+
+.scroll-to-top-btn:hover {
+  transform: translateY(-3px) scale(1.08);
+  box-shadow: 0 8px 24px rgba(13, 71, 161, 0.5);
+}
+
+.scroll-to-top-btn:active {
+  transform: scale(0.95);
+}
+
+/* ============================================
+   IMAGE LAZY LOAD FADE
+   ============================================ */
+img {
+  transition: opacity 0.3s ease;
+}
+
+img[loading="lazy"] {
+  opacity: 0;
+}
+
+img[loading="lazy"].loaded,
+img:not([loading="lazy"]) {
+  opacity: 1;
+}
+
+/* ============================================
+   ALERT SMOOTH
+   ============================================ */
+.alert {
+  animation: fadeSlideUp 0.35s var(--transition-smooth) both;
+}
+
+/* ============================================
+   TOOLTIP & POPOVER SMOOTH
+   ============================================ */
+.tooltip, .popover {
+  animation: scaleIn 0.15s var(--transition-smooth) both;
+}
+
+/* ============================================
+   BADGE PULSE FOR NOTIFICATIONS
+   ============================================ */
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+.badge-pulse {
+  animation: pulse 2s ease infinite;
+}
+
+/* ============================================
+   IMPROVED CAROUSEL
+   ============================================ */
+.carousel-control-prev,
+.carousel-control-next {
+  width: 48px;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+  bottom: auto;
+  opacity: 0;
+  transition: opacity 0.3s, background 0.3s;
+}
+
+.carousel:hover .carousel-control-prev,
+.carousel:hover .carousel-control-next {
+  opacity: 1;
+}
+
+.carousel-control-prev { left: 16px; }
+.carousel-control-next { right: 16px; }
+
+.carousel-control-prev:hover,
+.carousel-control-next:hover {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.carousel-indicators [data-bs-target] {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  opacity: 0.4;
+  transition: opacity 0.3s, transform 0.3s, width 0.3s;
+}
+
+.carousel-indicators .active {
+  opacity: 1;
+  width: 28px;
+  border-radius: 5px;
+  background: #f59e0b;
 }

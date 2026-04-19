@@ -5,13 +5,30 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('user');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      // Validate user object — role must be a plain string
+      if (!parsed || typeof parsed.role !== 'string' || !parsed.email) {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        return null;
+      }
+      return parsed;
+    } catch {
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      return null;
+    }
   });
 
   const login = async (email, password, captchaToken, captchaText) => {
     const { data } = await client.post('/auth/login', { email, password, captchaToken, captchaText });
     localStorage.setItem('token', data.token);
+    if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('user', JSON.stringify(data.user));
     setUser(data.user);
   };
@@ -24,6 +41,7 @@ export const AuthProvider = ({ children }) => {
   const register = async (registerToken, otpCode) => {
     const { data } = await client.post('/auth/register', { registerToken, otpCode });
     localStorage.setItem('token', data.token);
+    if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('user', JSON.stringify(data.user));
     setUser(data.user);
   };
@@ -37,6 +55,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
     setUser(null);
   };

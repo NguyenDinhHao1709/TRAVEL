@@ -1,65 +1,116 @@
-const buildFactsPrompt = ({ tours = [], articles = [] }) => {
-  const tourFacts = tours.slice(0, 12).map((tour, index) => (
-    `${index + 1}. ${tour.title} | Điểm đến: ${tour.destination} | Giá: ${Number(tour.price || 0).toLocaleString('vi-VN')} VND | `
-    + `Lịch: ${tour.start_date || 'N/A'} -> ${tour.end_date || 'N/A'} | Còn chỗ: ${tour.available_slots}`
-  )).join('\n');
+const pool = require('../config/db');
 
-  const articleFacts = articles.slice(0, 8).map((article, index) => (
-    `${index + 1}. ${article.title} | Nội dung: ${String(article.content || '').slice(0, 280)}`
-  )).join('\n');
+// Khởi tạo OpenAI nếu có API key
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  try {
+    const { OpenAI } = require('openai');
+    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  } catch {
+    console.warn('[AI] openai package chưa cài. Dùng rule-based fallback.');
+  }
+}
 
-  return `Dữ liệu tour hiện có:\n${tourFacts || '- Không có dữ liệu'}\n\nDữ liệu bài viết:\n${articleFacts || '- Không có dữ liệu'}`;
-};
+async function getRelevantTours(message) {
+  const lower = message.toLowerCase();
 
-const generateAIReply = async ({ message, tours, articles, conversation = [], contextSummary = '' }) => {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
+  // Trích xuất giá
+  const priceMatch = lower.match(/(\d+)\s*(triệu|trieu|million)/i);
+  const maxPrice = priceMatch ? Number(priceMatch[1]) * 1_000_000 : null;
 
-  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-  const factsPrompt = buildFactsPrompt({ tours, articles });
-
-  const systemPrompt =
-    'Bạn là trợ lý tư vấn du lịch HK2 Travel. Trả lời bằng tiếng Việt, rõ ràng, đầy đủ, chính xác theo dữ liệu được cung cấp. '
-    + 'Không bịa thông tin. Nếu chưa đủ dữ liệu thì nêu rõ và gợi ý câu hỏi tiếp theo. '
-    + 'Khi tư vấn tour, ưu tiên nêu: điểm đến, giá, thời gian, chỗ còn lại, đối tượng phù hợp. '
-    + 'Trả lời ngắn gọn theo dạng gạch đầu dòng khi phù hợp.';
-
-  const historyMessages = conversation.slice(-8).map((item) => ({
-    role: item.role === 'assistant' ? 'assistant' : 'user',
-    content: item.message
-  }));
-
-  const payload = {
-    model,
-    temperature: 0.2,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'system', content: factsPrompt },
-      ...(contextSummary ? [{ role: 'system', content: contextSummary }] : []),
-      ...historyMessages,
-      { role: 'user', content: message }
-    ]
-  };
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`OpenAI request failed: ${response.status} ${errorText}`);
+  // Trích xuất điểm đến
+  const knownDests = [
+    'đà nẵng', 'da nang', 'phú quốc', 'phu quoc',
+    'hội an', 'hoi an', 'hà nội', 'ha noi',
+    'hồ chí minh', 'sai gon', 'nha trang', 'đà lạt', 'da lat',
+    'hạ long', 'ha long', 'huế', 'hue', 'cần thơ', 'can tho'
+  ];
+  let destFilter = null;
+  for (const dest of knownDests) {
+    if (lower.includes(dest)) { destFilter = dest; break; }
   }
 
-  const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content;
-  return String(content || '').trim() || null;
-};
+  let query = `SELECT id, title, destination, price, start_date, end_date, slots FROM tours WHERE slots > 0 AND start_date >= CURDATE()`;
+  const params = [];
+
+  if (maxPrice) { query += ' AND price <= ?'; params.push(maxPrice); }
+  if (destFilter) { query += ' AND LOWER(destination) LIKE ?'; params.push(`%${destFilter}%`); }
+
+  query += ' ORDER BY slots DESC LIMIT 5';
+  const [rows] = await pool.execute(query, params);
+
+  return rows.map((t) => ({
+    id: t.id,
+    title: t.title,
+    destination: t.destination,
+    price: t.price,
+    startDate: t.start_date,
+    endDate: t.end_date,
+    availableSlots: t.slots
+  }));
+}
+
+function buildRuleBasedReply(message, tours) {
+  const lower = message.toLowerCase();
+  const suggestions = ['Gợi ý tour dưới 4 triệu', 'Tour nào còn chỗ nhiều?', 'Tư vấn tour Đà Nẵng'];
+
+  if (lower.includes('đặt') || lower.includes('book')) {
+    return {
+      reply: 'Bạn muốn đặt tour? Vui lòng đăng nhập và chọn tour trên trang danh sách tour.',
+      tours: [],
+      suggestions
+    };
+  }
+
+  if (tours.length === 0) {
+    return {
+      reply: 'Xin lỗi, mình chưa tìm thấy tour phù hợp. Bạn có thể thử tìm kiếm với từ khóa khác.',
+      tours: [],
+      suggestions
+    };
+  }
+
+  let reply = `Mình tìm được ${tours.length} tour phù hợp:`;
+  for (const t of tours) {
+    reply += `\n- ${t.title} (${t.destination}): ${Number(t.price).toLocaleString('vi-VN')} VND, còn ${t.availableSlots} chỗ`;
+  }
+
+  return { reply, tours, suggestions };
+}
 
 module.exports = {
-  generateAIReply
+  ask: async (message) => {
+    const tours = await getRelevantTours(message);
+
+    if (openai) {
+      try {
+        const toursCtx = tours.length > 0
+          ? `Các tour phù hợp: ${tours.map((t) => `${t.title} - ${t.destination} - ${Number(t.price).toLocaleString('vi-VN')} VND - còn ${t.availableSlots} chỗ`).join('; ')}`
+          : 'Không có tour phù hợp hiện tại.';
+
+        const response = await openai.chat.completions.create({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'system',
+              content: `Bạn là trợ lý du lịch của HK2 Travel. Trả lời ngắn gọn, thân thiện bằng tiếng Việt. Không liệt kê tour bằng gạch đầu dòng vì hệ thống sẽ hiển thị tour tự động. ${toursCtx}`
+            },
+            { role: 'user', content: message }
+          ],
+          max_tokens: 300
+        });
+
+        return {
+          reply: response.choices[0].message.content,
+          tours,
+          suggestions: ['Gợi ý tour dưới 4 triệu', 'Tour nào còn chỗ nhiều?', 'Tư vấn tour Đà Nẵng'],
+          source: 'openai'
+        };
+      } catch (e) {
+        console.error('[AI] OpenAI error:', e.message);
+      }
+    }
+
+    return { ...buildRuleBasedReply(message, tours), source: 'rules' };
+  }
 };

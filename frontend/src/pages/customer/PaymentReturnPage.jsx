@@ -11,9 +11,7 @@ const PaymentReturnPage = () => {
     const verifyPayment = async () => {
       try {
         const params = Object.fromEntries(searchParams);
-        const isMoMoReturn = Boolean(params.partnerCode && params.orderId);
-        const endpoint = isMoMoReturn ? '/payments/momo/return' : '/payments/vnpay/return';
-        const { data } = await client.get(endpoint, { params });
+        const { data } = await client.get('/payments/vnpay/return', { params });
         setResult(data);
       } catch (error) {
         setResult({ success: false, message: error.response?.data?.message || 'Xác minh thanh toán thất bại' });

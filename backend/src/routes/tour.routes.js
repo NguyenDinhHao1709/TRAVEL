@@ -1,14 +1,13 @@
 const express = require('express');
-const { getTours, getFeaturedTours, getTourById, createTour, updateTour, deleteTour } = require('../controllers/tour.controller');
-const { authenticate, authorize } = require('../middleware/auth');
-
+const tourController = require('../controllers/tour.controller');
+const authenticate = require('../middleware/auth');
 const router = express.Router();
 
-router.get('/', getTours);
-router.get('/featured', getFeaturedTours);
-router.get('/:id', getTourById);
-router.post('/', authenticate, authorize('admin'), createTour);
-router.put('/:id', authenticate, authorize('admin'), updateTour);
-router.delete('/:id', authenticate, authorize('admin'), deleteTour);
+router.get('/featured', tourController.getFeaturedTours);
+router.get('/', tourController.getAllTours);
+router.get('/:id', tourController.getTourById);
+router.post('/', authenticate, authenticate.requireRole('admin'), tourController.createTour);
+router.put('/:id', authenticate, authenticate.requireRole('admin'), tourController.updateTour);
+router.delete('/:id', authenticate, authenticate.requireRole('admin'), tourController.deleteTour);
 
 module.exports = router;

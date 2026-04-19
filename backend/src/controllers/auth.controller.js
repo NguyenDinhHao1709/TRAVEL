@@ -1,287 +1,247 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
-const { signToken } = require('../utils/jwt');
-const { generateCaptcha, verifyCaptcha } = require('../services/captcha.service');
-const { createRegisterOtp, verifyRegisterOtp } = require('../services/register-otp.service');
-const { createForgotPasswordOtp, verifyForgotPasswordOtp } = require('../services/forgot-password-otp.service');
-const { sendRegisterOtpEmail, sendForgotPasswordOtpEmail } = require('../services/email.service');
+const jwtUtil = require('../utils/jwt');
+const captchaService = require('../services/captcha.service');
+const otpService = require('../services/register-otp.service');
+const emailService = require('../services/email.service');
 
-const normalizeFullName = (value) => String(value || '').trim().replace(/\s+/g, ' ');
-const isValidFullName = (value) => {
-  const normalized = normalizeFullName(value);
-  return normalized.length >= 2 && /^[\p{L}\s]+$/u.test(normalized);
+exports.getCaptcha = (req, res) => {
+  const { captchaToken, captchaSvg } = captchaService.generate();
+  res.json({ captchaToken, captchaSvg });
 };
 
-const requestRegisterOtp = async (req, res) => {
-  try {
-    const { fullName, email, password } = req.body;
-    const normalizedFullName = normalizeFullName(fullName);
+exports.login = async (req, res) => {
+  const { email, password, captchaToken, captchaText } = req.body;
 
-    if (!fullName || !email || !password) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    if (!isValidFullName(normalizedFullName)) {
-      return res.status(400).json({ message: 'Họ tên chỉ được chứa chữ cái và khoảng trắng' });
-    }
-
-    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
-    if (existing.length) {
-      return res.status(409).json({ message: 'Email already exists' });
-    }
-
-    const { registerToken, otpCode, expiresInSeconds } = createRegisterOtp({
-      fullName: normalizedFullName,
-      email,
-      password
-    });
-
-    setImmediate(async () => {
-      try {
-        await sendRegisterOtpEmail({
-          toEmail: email,
-          fullName,
-          otpCode
-        });
-      } catch (mailError) {
-        console.error('Send register OTP email failed:', mailError.message);
-      }
-    });
-
-    return res.status(200).json({
-      message: 'Yêu cầu OTP đã được tạo, mã đang được gửi về email của bạn',
-      registerToken,
-      expiresInSeconds
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Vui lòng nhập email và mật khẩu' });
   }
-};
 
-const register = async (req, res) => {
-  try {
-    const { registerToken, otpCode } = req.body;
-
-    if (!registerToken || !otpCode) {
-      return res.status(400).json({ message: 'Thiếu mã xác thực đăng ký' });
-    }
-
-    const otpPayload = verifyRegisterOtp({ registerToken, otpCode });
-    if (!otpPayload) {
-      return res.status(400).json({ message: 'Mã OTP không đúng hoặc đã hết hạn' });
-    }
-
-    const normalizedFullName = normalizeFullName(otpPayload.fullName);
-    if (!isValidFullName(normalizedFullName)) {
-      return res.status(400).json({ message: 'Họ tên không hợp lệ' });
-    }
-
-    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [otpPayload.email]);
-    if (existing.length) {
-      return res.status(409).json({ message: 'Email already exists' });
-    }
-
-    const [result] = await pool.query(
-      'INSERT INTO users (full_name, email, password, role) VALUES (?, ?, ?, ?)',
-      [
-        normalizedFullName,
-        otpPayload.email,
-        await bcrypt.hash(String(otpPayload.password || ''), 10),
-        'user'
-      ]
-    );
-
-    const token = signToken({ id: result.insertId, email: otpPayload.email, role: 'user' });
-    return res.status(201).json({
-      token,
-      user: {
-        id: result.insertId,
-        fullName: normalizedFullName,
-        email: otpPayload.email,
-        role: 'user'
-      }
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  if (!captchaToken || !captchaText) {
+    return res.status(400).json({ message: 'Vui lòng nhập mã CAPTCHA' });
   }
-};
 
-const requestForgotPasswordOtp = async (req, res) => {
-  try {
-    const email = String(req.body?.email || '').trim().toLowerCase();
-    if (!email) {
-      return res.status(400).json({ message: 'Vui lòng nhập email' });
-    }
-
-    const [rows] = await pool.query(
-      'SELECT id, full_name, email FROM users WHERE email = ? AND COALESCE(is_deleted, 0) = 0 LIMIT 1',
-      [email]
-    );
-
-    if (!rows.length) {
-      return res.status(404).json({ message: 'Email chưa được đăng ký' });
-    }
-
-    const { resetToken, otpCode, expiresInSeconds } = createForgotPasswordOtp({
-      userId: rows[0].id,
-      email: rows[0].email
-    });
-
-    await sendForgotPasswordOtpEmail({
-      toEmail: rows[0].email,
-      fullName: rows[0].full_name,
-      otpCode
-    });
-
-    return res.json({
-      message: 'Đã gửi mã OTP đặt lại mật khẩu về email của bạn',
-      resetToken,
-      expiresInSeconds
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  if (!captchaService.verify(captchaToken, captchaText)) {
+    return res.status(400).json({ message: 'Mã CAPTCHA không đúng' });
   }
-};
 
-const resetPasswordWithOtp = async (req, res) => {
-  try {
-    const { resetToken, otpCode, newPassword } = req.body || {};
+  const [rows] = await pool.execute(
+    'SELECT * FROM users WHERE email = ? LIMIT 1',
+    [String(email).toLowerCase().trim()]
+  );
 
-    if (!resetToken || !otpCode || !newPassword) {
-      return res.status(400).json({ message: 'Thiếu thông tin đặt lại mật khẩu' });
-    }
-
-    if (String(newPassword).length < 6) {
-      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
-    }
-
-    const otpPayload = verifyForgotPasswordOtp({ resetToken, otpCode });
-    if (!otpPayload) {
-      return res.status(400).json({ message: 'Mã OTP không đúng hoặc đã hết hạn' });
-    }
-
-    const hashed = await bcrypt.hash(String(newPassword), 10);
-    const [result] = await pool.query(
-      'UPDATE users SET password = ?, must_change_password = 0 WHERE id = ? AND COALESCE(is_deleted, 0) = 0',
-      [hashed, otpPayload.userId]
-    );
-
-    if (!result.affectedRows) {
-      return res.status(404).json({ message: 'Không tìm thấy tài khoản' });
-    }
-
-    return res.json({ message: 'Đặt lại mật khẩu thành công, vui lòng đăng nhập lại' });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+  const user = rows[0];
+  if (!user) {
+    return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
   }
+
+  if (user.is_locked) {
+    return res.status(403).json({ message: 'Tài khoản đã bị khóa' });
+  }
+
+  const match = await bcrypt.compare(String(password), user.password);
+  if (!match) {
+    return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
+  }
+
+  const tokenPayload = { id: user.id, email: user.email, role: user.role };
+  const token = jwtUtil.sign(tokenPayload);
+  const refreshToken = jwtUtil.signRefresh(tokenPayload);
+  res.json({
+    token,
+    refreshToken,
+    user: {
+      id: user.id,
+      fullName: user.full_name,
+      email: user.email,
+      role: user.role,
+      mustChangePassword: !!user.must_change_password
+    }
+  });
 };
 
-const login = async (req, res) => {
+exports.requestRegisterOtp = async (req, res) => {
+  const { fullName, email, password } = req.body;
+
+  if (!fullName || !email || !password) {
+    return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin' });
+  }
+
+  if (String(password).length < 6) {
+    return res.status(400).json({ message: 'Mật khẩu phải có ít nhất 6 ký tự' });
+  }
+
+  const normalEmail = String(email).toLowerCase().trim();
+
+  // Chạy song song: kiểm tra email + hash mật khẩu (tiết kiệm ~100-200ms)
+  const [existingResult, passwordHash] = await Promise.all([
+    pool.execute('SELECT id FROM users WHERE email = ? LIMIT 1', [normalEmail]),
+    bcrypt.hash(String(password), 10)
+  ]);
+  const [existing] = existingResult;
+  if (existing.length > 0) {
+    return res.status(400).json({ message: 'Email đã được đăng ký' });
+  }
+
+  const { token, otp } = otpService.generateRegisterSession(
+    String(fullName).trim(), normalEmail, passwordHash
+  );
+
+  console.log(`[Auth] OTP đăng ký cho ${normalEmail}: ${token.slice(0,8)}... | OTP sẽ được gửi email`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Auth][DEV] OTP Code: ${otp}`);
+  }
+
+  // Trả response trước, gửi email nền (không chờ đợi)
+  res.json({ registerToken: token, message: 'Mã OTP đã được gửi về email' });
+
+  emailService.sendMail(
+    normalEmail,
+    'Mã xác nhận đăng ký HK2 Travel',
+    `<p>Xin chào <strong>${String(fullName).trim().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c])}</strong>,</p>
+     <p>Mã OTP đăng ký của bạn là: <strong style="font-size:24px;letter-spacing:4px">${otp}</strong></p>
+     <p>Mã có hiệu lực trong <strong>5 phút</strong>.</p>
+     <p>Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email này.</p>`
+  ).catch(e => console.error('[Auth] Gửi OTP email lỗi:', e.message));
+};
+
+exports.register = async (req, res) => {
+  const { registerToken, otpCode } = req.body;
+
+  if (!registerToken || !otpCode) {
+    return res.status(400).json({ message: 'Thiếu token hoặc mã OTP' });
+  }
+
+  const session = await otpService.verifyOtp(registerToken, otpCode);
+  if (!session || session.type !== 'register') {
+    return res.status(400).json({ message: 'Mã OTP không đúng hoặc đã hết hạn' });
+  }
+
+  const [existing] = await pool.execute('SELECT id FROM users WHERE email = ? LIMIT 1', [session.email]);
+  if (existing.length > 0) {
+    return res.status(400).json({ message: 'Email đã được đăng ký' });
+  }
+
+  const [result] = await pool.execute(
+    'INSERT INTO users (full_name, email, password, role) VALUES (?, ?, ?, ?)',
+    [session.fullName, session.email, session.passwordHash, 'user']
+  );
+
+  const tokenPayload = { id: result.insertId, email: session.email, role: 'user' };
+  const token = jwtUtil.sign(tokenPayload);
+  const refreshToken = jwtUtil.signRefresh(tokenPayload);
+  res.status(201).json({
+    token,
+    refreshToken,
+    user: { id: result.insertId, fullName: session.fullName, email: session.email, role: 'user', mustChangePassword: false }
+  });
+};
+
+exports.requestForgotPasswordOtp = async (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: 'Vui lòng nhập email' });
+  }
+
+  const normalEmail = String(email).toLowerCase().trim();
+  const [rows] = await pool.execute('SELECT id FROM users WHERE email = ? LIMIT 1', [normalEmail]);
+
+  // Luôn trả về thành công để tránh enum email
+  if (rows.length === 0) {
+    return res.json({ resetToken: 'not-found', message: 'Nếu email tồn tại, mã OTP sẽ được gửi về email' });
+  }
+
+  const { token, otp } = otpService.generateForgotSession(normalEmail);
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Auth][DEV] Forgot OTP cho ${normalEmail}: ${otp}`);
+  }
+
+  // Trả response trước, gửi email nền (không chờ đợi)
+  res.json({ resetToken: token, message: 'Mã OTP đã được gửi về email' });
+
+  emailService.sendMail(
+    normalEmail,
+    'Mã OTP đặt lại mật khẩu HK2 Travel',
+    `<p>Mã OTP đặt lại mật khẩu của bạn là: <strong style="font-size:24px;letter-spacing:4px">${otp}</strong></p>
+     <p>Mã có hiệu lực trong <strong>5 phút</strong>.</p>`
+  ).catch(e => console.error('[Auth] Gửi OTP email lỗi:', e.message));
+};
+
+exports.resetForgotPassword = async (req, res) => {
+  const { resetToken, otpCode, newPassword } = req.body;
+
+  if (!resetToken || !otpCode || !newPassword) {
+    return res.status(400).json({ message: 'Thiếu thông tin' });
+  }
+
+  if (String(newPassword).length < 6) {
+    return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+  }
+
+  const session = await otpService.verifyOtp(resetToken, otpCode);
+  if (!session || session.type !== 'forgot') {
+    return res.status(400).json({ message: 'Mã OTP không đúng hoặc đã hết hạn' });
+  }
+
+  const passwordHash = await bcrypt.hash(String(newPassword), 10);
+  await pool.execute(
+    'UPDATE users SET password = ?, must_change_password = 0 WHERE email = ?',
+    [passwordHash, session.email]
+  );
+
+  res.json({ message: 'Đặt lại mật khẩu thành công' });
+};
+
+exports.changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.id;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'Thiếu thông tin' });
+  }
+
+  if (String(newPassword).length < 6) {
+    return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+  }
+
+  const [rows] = await pool.execute('SELECT password FROM users WHERE id = ? LIMIT 1', [userId]);
+  if (rows.length === 0) {
+    return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+  }
+
+  const match = await bcrypt.compare(String(currentPassword), rows[0].password);
+  if (!match) {
+    return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng' });
+  }
+
+  const newHash = await bcrypt.hash(String(newPassword), 10);
+  await pool.execute(
+    'UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?',
+    [newHash, userId]
+  );
+
+  res.json({ message: 'Đổi mật khẩu thành công' });
+};
+
+exports.refreshToken = async (req, res) => {
+  const { refreshToken } = req.body;
+  if (!refreshToken) {
+    return res.status(400).json({ message: 'Thiếu refresh token' });
+  }
+
   try {
-    const { email, password, captchaToken, captchaText } = req.body;
-
-    const captchaOk = verifyCaptcha({ token: captchaToken, input: captchaText });
-    if (!captchaOk) {
-      return res.status(400).json({ message: 'Mã CAPTCHA không đúng hoặc đã hết hạn' });
-    }
-
-    const [rows] = await pool.query('SELECT * FROM users WHERE email = ?', [email]);
-
-    if (!rows.length) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
+    const decoded = jwtUtil.verifyRefresh(refreshToken);
+    const [rows] = await pool.execute('SELECT id, email, role, is_locked FROM users WHERE id = ? LIMIT 1', [decoded.id]);
     const user = rows[0];
-
-    if (Number(user.is_deleted || 0) === 1) {
-      return res.status(403).json({ message: 'Tài khoản đã bị xóa khỏi hệ thống' });
+    if (!user || user.is_locked) {
+      return res.status(401).json({ message: 'Tài khoản không hợp lệ' });
     }
-
-    if (Number(user.is_locked || 0) === 1) {
-      return res.status(403).json({ message: 'Tài khoản đang bị khóa' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const token = signToken({ id: user.id, email: user.email, role: user.role });
-    return res.json({
-      token,
-      user: {
-        id: user.id,
-        fullName: user.full_name,
-        email: user.email,
-        role: user.role,
-        mustChangePassword: Number(user.must_change_password || 0) === 1
-      }
-    });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
+    const tokenPayload = { id: user.id, email: user.email, role: user.role };
+    const newToken = jwtUtil.sign(tokenPayload);
+    const newRefreshToken = jwtUtil.signRefresh(tokenPayload);
+    res.json({ token: newToken, refreshToken: newRefreshToken });
+  } catch {
+    return res.status(401).json({ message: 'Refresh token không hợp lệ hoặc đã hết hạn' });
   }
-};
-
-const getCaptcha = async (req, res) => {
-  try {
-    return res.json(generateCaptcha());
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-const changePassword = async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin' });
-    }
-
-    if (String(newPassword).length < 6) {
-      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
-    }
-
-    const [rows] = await pool.query('SELECT password FROM users WHERE id = ? AND COALESCE(is_deleted,0) = 0', [req.user.id]);
-    if (!rows.length) return res.status(404).json({ message: 'Không tìm thấy tài khoản' });
-
-    const isMatch = await bcrypt.compare(currentPassword, rows[0].password);
-    if (!isMatch) return res.status(400).json({ message: 'Mật khẩu hiện tại không đúng' });
-
-    const hashed = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE users SET password = ?, must_change_password = 0 WHERE id = ?', [hashed, req.user.id]);
-
-    return res.json({ message: 'Đổi mật khẩu thành công' });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-const me = async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      'SELECT id, full_name, email, role, created_at FROM users WHERE id = ? AND COALESCE(is_deleted, 0) = 0',
-      [req.user.id]
-    );
-
-    if (!rows.length) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    return res.json(rows[0]);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-module.exports = {
-  register,
-  requestRegisterOtp,
-  requestForgotPasswordOtp,
-  resetPasswordWithOtp,
-  login,
-  me,
-  changePassword,
-  getCaptcha
 };

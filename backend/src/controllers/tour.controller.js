@@ -1,169 +1,120 @@
 const pool = require('../config/db');
 
-const parseImageUrls = (value) => {
-  if (!value) {
-    return [];
-  }
-
-  if (Array.isArray(value)) {
-    return value.filter(Boolean);
-  }
-
-  if (typeof value !== 'string') {
-    return [];
-  }
-
-  const trimmedValue = value.trim();
-
-  if (!trimmedValue) {
-    return [];
-  }
-
+function safeParseJson(value, defaultVal = []) {
+  if (Array.isArray(value)) return value;
+  if (!value) return defaultVal;
   try {
-    const parsedValue = JSON.parse(trimmedValue);
-    return Array.isArray(parsedValue) ? parsedValue.filter(Boolean) : [trimmedValue];
-  } catch {
-    return [trimmedValue];
+    const p = JSON.parse(value);
+    return Array.isArray(p) ? p : defaultVal;
+  } catch { return defaultVal; }
+}
+
+function formatTour(t) {
+  return { ...t, image_urls: safeParseJson(t.image_urls, t.image_url ? [t.image_url] : []) };
+}
+
+exports.getAllTours = async (req, res) => {
+  const { title, destination, minPrice, maxPrice } = req.query;
+  let query = 'SELECT * FROM tours WHERE 1=1';
+  const params = [];
+
+  if (title) { query += ' AND title LIKE ?'; params.push(`%${title}%`); }
+  if (destination) { query += ' AND destination LIKE ?'; params.push(`%${destination}%`); }
+  if (minPrice) { query += ' AND price >= ?'; params.push(Number(minPrice)); }
+  if (maxPrice) { query += ' AND price <= ?'; params.push(Number(maxPrice)); }
+
+  query += ' ORDER BY created_at DESC';
+  const [rows] = await pool.execute(query, params);
+  res.json(rows.map(formatTour));
+};
+
+exports.getFeaturedTours = async (req, res) => {
+  const [rows] = await pool.execute(`
+    SELECT t.*, COUNT(b.id) as booking_count
+    FROM tours t
+    LEFT JOIN bookings b ON b.tour_id = t.id AND b.booking_status != 'cancelled'
+    WHERE t.slots > 0
+    GROUP BY t.id
+    ORDER BY booking_count DESC
+    LIMIT 6
+  `);
+  res.json(rows.map(formatTour));
+};
+
+exports.getTourById = async (req, res) => {
+  const { id } = req.params;
+  const [rows] = await pool.execute('SELECT * FROM tours WHERE id = ? LIMIT 1', [id]);
+  if (rows.length === 0) return res.status(404).json({ message: 'Không tìm thấy tour' });
+
+  const tour = formatTour(rows[0]);
+  const [reviews] = await pool.execute(`
+    SELECT r.*, u.full_name as user_name
+    FROM reviews r
+    LEFT JOIN users u ON u.id = r.user_id
+    WHERE r.tour_id = ? AND r.status = 'approved'
+    ORDER BY r.created_at DESC
+  `, [id]);
+
+  tour.reviews = reviews;
+  res.json(tour);
+};
+
+exports.createTour = async (req, res) => {
+  const { title, destination, itinerary, price, startDate, endDate, slots, imageUrls, latitude, longitude } = req.body;
+
+  if (!title || !destination || price == null || !slots) {
+    return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin' });
   }
+
+  const imageUrlMain = Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls[0] : null;
+  const imageUrlsJson = Array.isArray(imageUrls) && imageUrls.length > 0 ? JSON.stringify(imageUrls) : null;
+
+  const [result] = await pool.execute(
+    'INSERT INTO tours (title, destination, itinerary, price, start_date, end_date, slots, image_url, image_urls, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [title, destination, itinerary || null, Number(price), startDate || null, endDate || null, Number(slots), imageUrlMain, imageUrlsJson, latitude || null, longitude || null]
+  );
+
+  res.status(201).json({ id: result.insertId, message: 'Tạo tour thành công' });
 };
 
-const serializeImageUrls = (imageUrls, imageUrl) => {
-  const normalizedImages = parseImageUrls(imageUrls && imageUrls.length !== undefined ? imageUrls : imageUrl);
-  return normalizedImages.length ? JSON.stringify(normalizedImages) : null;
+exports.updateTour = async (req, res) => {
+  const { id } = req.params;
+  const { title, destination, itinerary, price, startDate, endDate, slots, imageUrls, latitude, longitude } = req.body;
+
+  const [existing] = await pool.execute('SELECT id FROM tours WHERE id = ? LIMIT 1', [id]);
+  if (existing.length === 0) return res.status(404).json({ message: 'Không tìm thấy tour' });
+
+  const imageUrlMain = Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls[0] : undefined;
+  const imageUrlsJson = Array.isArray(imageUrls) && imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined;
+
+  // Build dynamic update - only update provided fields
+  const fields = [];
+  const params = [];
+  if (title !== undefined) { fields.push('title = ?'); params.push(title); }
+  if (destination !== undefined) { fields.push('destination = ?'); params.push(destination); }
+  if (itinerary !== undefined) { fields.push('itinerary = ?'); params.push(itinerary || null); }
+  if (price !== undefined) { fields.push('price = ?'); params.push(Number(price)); }
+  if (startDate !== undefined) { fields.push('start_date = ?'); params.push(startDate || null); }
+  if (endDate !== undefined) { fields.push('end_date = ?'); params.push(endDate || null); }
+  if (slots !== undefined) { fields.push('slots = ?'); params.push(Number(slots)); }
+  if (imageUrlMain !== undefined) { fields.push('image_url = ?'); params.push(imageUrlMain); }
+  if (imageUrlsJson !== undefined) { fields.push('image_urls = ?'); params.push(imageUrlsJson); }
+  if (latitude !== undefined) { fields.push('latitude = ?'); params.push(latitude || null); }
+  if (longitude !== undefined) { fields.push('longitude = ?'); params.push(longitude || null); }
+
+  if (fields.length === 0) return res.status(400).json({ message: 'Không có thông tin để cập nhật' });
+
+  fields.push('updated_at = NOW()');
+  params.push(id);
+
+  await pool.execute(`UPDATE tours SET ${fields.join(', ')} WHERE id = ?`, params);
+  res.json({ message: 'Cập nhật tour thành công' });
 };
 
-const normalizeTour = (tour) => {
-  const imageUrls = parseImageUrls(tour.image_url);
-
-  return {
-    ...tour,
-    image_url: imageUrls[0] || '',
-    image_urls: imageUrls
-  };
+exports.deleteTour = async (req, res) => {
+  const { id } = req.params;
+  const [existing] = await pool.execute('SELECT id FROM tours WHERE id = ? LIMIT 1', [id]);
+  if (existing.length === 0) return res.status(404).json({ message: 'Không tìm thấy tour' });
+  await pool.execute('DELETE FROM tours WHERE id = ?', [id]);
+  res.json({ message: 'Xóa tour thành công' });
 };
-
-const getTours = async (req, res) => {
-  try {
-    const { search = '', title = '', destination = '', minPrice = 0, maxPrice = 999999999 } = req.query;
-    const normalizedSearch = typeof search === 'string' ? search.trim() : '';
-    const normalizedTitle = typeof title === 'string' ? title.trim() : '';
-    const normalizedDestination = typeof destination === 'string' ? destination.trim() : '';
-
-    const parsedMinPrice = minPrice === '' || minPrice === undefined ? 0 : Number(minPrice);
-    const parsedMaxPrice = maxPrice === '' || maxPrice === undefined ? 999999999 : Number(maxPrice);
-
-    const safeMinPrice = Number.isNaN(parsedMinPrice) ? 0 : parsedMinPrice;
-    const safeMaxPrice = Number.isNaN(parsedMaxPrice) ? 999999999 : parsedMaxPrice;
-
-    const [rows] = await pool.query(
-      `SELECT * FROM tours
-       WHERE title LIKE ?
-         AND destination LIKE ?
-         AND price BETWEEN ? AND ?
-       ORDER BY created_at DESC`,
-      [
-        `%${normalizedTitle || normalizedSearch}%`,
-        `%${normalizedDestination || normalizedSearch}%`,
-        safeMinPrice,
-        safeMaxPrice
-      ]
-    );
-
-    return res.json(rows.map(normalizeTour));
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-const getFeaturedTours = async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      `SELECT t.*, COUNT(b.id) AS booking_count
-       FROM tours t
-       LEFT JOIN bookings b
-         ON b.tour_id = t.id
-         AND b.booking_status <> 'cancelled'
-       GROUP BY t.id
-       ORDER BY booking_count DESC, t.created_at DESC
-       LIMIT 3`
-    );
-
-    return res.json(rows.map((tour) => ({ ...normalizeTour(tour), booking_count: Number(tour.booking_count || 0) })));
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-const getTourById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [tourRows] = await pool.query('SELECT * FROM tours WHERE id = ?', [id]);
-
-    if (!tourRows.length) {
-      return res.status(404).json({ message: 'Tour not found' });
-    }
-
-    const [reviewRows] = await pool.query(
-      `SELECT r.id, r.rating, r.comment, r.created_at,
-              r.staff_reply, r.staff_reply_at,
-              u.full_name,
-              ru.full_name AS reply_staff_name
-       FROM reviews r
-       JOIN users u ON u.id = r.user_id
-       LEFT JOIN users ru ON ru.id = r.staff_reply_by
-       WHERE r.tour_id = ?
-       ORDER BY r.created_at DESC`,
-      [id]
-    );
-
-    return res.json({ ...normalizeTour(tourRows[0]), reviews: reviewRows });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-const createTour = async (req, res) => {
-  try {
-    const { title, destination, itinerary, price, startDate, endDate, slots, imageUrl, imageUrls, latitude, longitude } = req.body;
-    const serializedImages = serializeImageUrls(imageUrls, imageUrl);
-    const [result] = await pool.query(
-      `INSERT INTO tours (title, destination, itinerary, price, start_date, end_date, slots, image_url, latitude, longitude)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [title, destination, itinerary, price, startDate, endDate, slots, serializedImages, latitude, longitude]
-    );
-
-    return res.status(201).json({ id: result.insertId, message: 'Tour created' });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-const updateTour = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { title, destination, itinerary, price, startDate, endDate, slots, imageUrl, imageUrls, latitude, longitude } = req.body;
-    const serializedImages = serializeImageUrls(imageUrls, imageUrl);
-
-    await pool.query(
-      `UPDATE tours
-       SET title = ?, destination = ?, itinerary = ?, price = ?, start_date = ?, end_date = ?, slots = ?, image_url = ?, latitude = ?, longitude = ?
-       WHERE id = ?`,
-      [title, destination, itinerary, price, startDate, endDate, slots, serializedImages, latitude, longitude, id]
-    );
-
-    return res.json({ message: 'Tour updated' });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-const deleteTour = async (req, res) => {
-  try {
-    await pool.query('DELETE FROM tours WHERE id = ?', [req.params.id]);
-    return res.json({ message: 'Tour deleted' });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
-};
-
-module.exports = { getTours, getFeaturedTours, getTourById, createTour, updateTour, deleteTour };

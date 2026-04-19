@@ -1,19 +1,21 @@
 const express = require('express');
-const {
-  createBooking,
-  getMyBookings,
-  cancelMyBooking,
-  getAllBookingsForStaff,
-  cancelBookingByStaff
-} = require('../controllers/booking.controller');
-const { authenticate, authorize } = require('../middleware/auth');
-
+const bookingController = require('../controllers/booking.controller');
+const authenticate = require('../middleware/auth');
 const router = express.Router();
 
-router.post('/', authenticate, authorize('user'), createBooking);
-router.get('/my', authenticate, authorize('user'), getMyBookings);
-router.patch('/my/:id/cancel', authenticate, authorize('user'), cancelMyBooking);
-router.get('/staff/all', authenticate, authorize('staff', 'admin'), getAllBookingsForStaff);
-router.patch('/staff/:id/cancel', authenticate, authorize('staff', 'admin'), cancelBookingByStaff);
+// User routes
+router.get('/my', authenticate, bookingController.getMyBookings);
+router.post('/', authenticate, bookingController.createBooking);
+router.patch('/my/:bookingId/cancel', authenticate, bookingController.cancelMyBooking);
+
+// Staff routes
+router.get('/staff/all', authenticate, authenticate.requireRole('staff', 'admin'), bookingController.getStaffBookings);
+router.patch('/staff/:id/cancel', authenticate, authenticate.requireRole('staff', 'admin'), bookingController.staffCancelBooking);
+
+// Admin routes
+router.get('/', authenticate, authenticate.requireRole('admin'), bookingController.getAllBookings);
+router.get('/:id', authenticate, authenticate.requireRole('admin', 'staff'), bookingController.getBookingById);
+router.put('/:id', authenticate, authenticate.requireRole('admin', 'staff'), bookingController.updateBooking);
+router.delete('/:id', authenticate, authenticate.requireRole('admin'), bookingController.deleteBooking);
 
 module.exports = router;

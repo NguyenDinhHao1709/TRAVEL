@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import client from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
-const SOCKET_URL = 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 let socketRef = null;
 
@@ -43,9 +43,8 @@ const ChatWidget = () => {
     return (messageList || []).filter((msg) => msg.sender_role !== 'user' && Number(msg.id) > lastSeenId).length;
   };
 
-  useEffect(() => {
-    roomIdRef.current = room?.id || null;
-  }, [room?.id]);
+
+
 
   useEffect(() => {
     if (!user || user.role !== 'user') return;
@@ -61,7 +60,11 @@ const ChatWidget = () => {
         // avoid duplicate if the message was already added optimistically
         if (prev.find((m) => m.id === msg.id)) return prev;
 
-        const next = [...prev, msg];
+        // replace temp optimistic message from current user
+        const tempIdx = prev.findIndex((m) => String(m.id).startsWith('temp_') && m.sender_id === msg.sender_id);
+        const next = tempIdx >= 0
+          ? [...prev.slice(0, tempIdx), msg, ...prev.slice(tempIdx + 1)]
+          : [...prev, msg];
 
         if (msg.sender_role !== 'user') {
           if (isOpenRef.current) {
@@ -155,28 +158,42 @@ const ChatWidget = () => {
     }
   };
 
+  // Khôi phục lại hàm gửi tin nhắn cũ (nếu có)
+
   const sendMessage = async () => {
-    if (!input.trim() || !room) return;
+    const text = String(input || '').trim();
+    if (!text) return;
 
     let activeRoom = room;
-
-    if (room.status === 'closed') {
-      const newRoom = await loadOrCreateRoom();
-      if (!newRoom) return;
-      activeRoom = newRoom;
+    if (!activeRoom || activeRoom.status === 'closed') {
+      activeRoom = await loadOrCreateRoom();
+      if (!activeRoom) return;
     }
 
-    const text = input.trim();
     setInput('');
-    try {
-      if (!activeRoom?.id) {
-        setInput(text);
-        return;
-      }
 
-      await client.post(`/chat/rooms/${activeRoom.id}/messages`, { message: text });
+    // Optimistic UI
+    const tempMsg = {
+      id: `temp_${Date.now()}`,
+      room_id: activeRoom.id,
+      sender_id: user.id,
+      sender_role: user.role,
+      sender_name: user.fullName || '',
+      message: text,
+      created_at: new Date().toISOString()
+    };
+    setMessages((prev) => [...prev, tempMsg]);
+
+    try {
+      if (socketRef?.connected) {
+        socketRef.emit('send_message', { roomId: activeRoom.id, message: text });
+      } else {
+        const { data: savedMsg } = await client.post(`/chat/rooms/${activeRoom.id}/messages`, { message: text });
+        setMessages((prev) => prev.map((m) => m.id === tempMsg.id ? savedMsg : m));
+      }
     } catch {
-      setInput(text); // restore on error
+      setInput(text);
+      setMessages((prev) => prev.filter((m) => m.id !== tempMsg.id));
     }
   };
 

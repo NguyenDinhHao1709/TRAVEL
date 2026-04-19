@@ -1,75 +1,60 @@
 const crypto = require('crypto');
 
-const OTP_TTL_MS = 5 * 60 * 1000;
+// In-memory store (sản xuất nên dùng Redis)
 const otpStore = new Map();
-const emailTokenIndex = new Map();
+const OTP_TTL = 5 * 60 * 1000; // 5 phút
 
-const cleanupExpired = () => {
+// Hash OTP bằng SHA-256 (nhanh hơn bcrypt rất nhiều, OTP chỉ sống 5 phút nên không cần bcrypt)
+const hashOtp = (otp) => crypto.createHash('sha256').update(String(otp)).digest('hex');
+
+// Dọn sạch OTP hết hạn
+setInterval(() => {
   const now = Date.now();
-  for (const [token, item] of otpStore.entries()) {
-    if (item.expiresAt <= now) {
-      otpStore.delete(token);
-      if (item.email) {
-        emailTokenIndex.delete(String(item.email).toLowerCase());
-      }
-    }
+  for (const [token, entry] of otpStore.entries()) {
+    if (entry.expiresAt < now) otpStore.delete(token);
   }
-};
-
-const createOtpCode = () => String(Math.floor(100000 + Math.random() * 900000));
-
-const createRegisterOtp = ({ fullName, email, password }) => {
-  cleanupExpired();
-
-  const normalizedEmail = String(email || '').trim().toLowerCase();
-  const oldToken = emailTokenIndex.get(normalizedEmail);
-  if (oldToken) {
-    otpStore.delete(oldToken);
-  }
-
-  const registerToken = crypto.randomUUID();
-  const otpCode = createOtpCode();
-
-  otpStore.set(registerToken, {
-    fullName: String(fullName || '').trim(),
-    email: normalizedEmail,
-    password: String(password || ''),
-    otpCode,
-    expiresAt: Date.now() + OTP_TTL_MS
-  });
-
-  emailTokenIndex.set(normalizedEmail, registerToken);
-
-  return {
-    registerToken,
-    otpCode,
-    expiresInSeconds: Math.floor(OTP_TTL_MS / 1000)
-  };
-};
-
-const verifyRegisterOtp = ({ registerToken, otpCode }) => {
-  cleanupExpired();
-
-  const token = String(registerToken || '');
-  const data = otpStore.get(token);
-  if (!data) return null;
-
-  const input = String(otpCode || '').trim();
-  if (!input || input !== data.otpCode) {
-    return null;
-  }
-
-  otpStore.delete(token);
-  emailTokenIndex.delete(String(data.email || '').toLowerCase());
-
-  return {
-    fullName: data.fullName,
-    email: data.email,
-    password: data.password
-  };
-};
+}, 60 * 1000);
 
 module.exports = {
-  createRegisterOtp,
-  verifyRegisterOtp
+  generateRegisterSession: (fullName, email, passwordHash) => {
+    const otp = String(crypto.randomInt(100000, 999999));
+    const token = crypto.randomBytes(24).toString('hex');
+    otpStore.set(token, {
+      type: 'register',
+      fullName,
+      email,
+      passwordHash,
+      otpHash: hashOtp(otp),
+      expiresAt: Date.now() + OTP_TTL
+    });
+    return { token, otp };
+  },
+
+  generateForgotSession: (email) => {
+    const otp = String(crypto.randomInt(100000, 999999));
+    const token = crypto.randomBytes(24).toString('hex');
+    // Xóa session cũ cho email này
+    for (const [k, v] of otpStore.entries()) {
+      if (v.email === email && v.type === 'forgot') otpStore.delete(k);
+    }
+    otpStore.set(token, {
+      type: 'forgot',
+      email,
+      otpHash: hashOtp(otp),
+      expiresAt: Date.now() + OTP_TTL
+    });
+    return { token, otp };
+  },
+
+  verifyOtp: (token, otp) => {
+    const entry = otpStore.get(String(token || ''));
+    if (!entry) return null;
+    if (entry.expiresAt < Date.now()) {
+      otpStore.delete(token);
+      return null;
+    }
+    if (hashOtp(otp) !== entry.otpHash) return null;
+    otpStore.delete(token);
+    return entry;
+  }
 };

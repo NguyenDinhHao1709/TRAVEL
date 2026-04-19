@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Card, Button, Form, Alert } from 'react-bootstrap';
+import { Card, Button, Form, Alert, InputGroup, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import DOMPurify from 'dompurify';
 import client from '../api/client';
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
@@ -18,6 +19,10 @@ const LoginPage = () => {
   const [captcha, setCaptcha] = useState({ captchaToken: '', captchaSvg: '' });
   const [captchaText, setCaptchaText] = useState('');
   const [error, setError] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const loadCaptcha = async () => {
     try {
@@ -51,11 +56,14 @@ const LoginPage = () => {
 
     try {
       setError('');
+      setLoading(true);
       await login(form.email, form.password, captcha.captchaToken, captchaText);
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại');
       loadCaptcha();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -70,6 +78,7 @@ const LoginPage = () => {
     }
 
     try {
+      setLoading(true);
       if (!forgotOtpSent) {
         const { data } = await client.post('/auth/forgot-password/request-otp', {
           email: forgotForm.email.trim()
@@ -110,6 +119,8 @@ const LoginPage = () => {
       loadCaptcha();
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể xử lý quên mật khẩu');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -117,6 +128,7 @@ const LoginPage = () => {
     try {
       setError('');
       setForgotInfo('');
+      setLoading(true);
       const { data } = await client.post('/auth/forgot-password/request-otp', {
         email: forgotForm.email.trim()
       });
@@ -124,6 +136,8 @@ const LoginPage = () => {
       setForgotInfo('Đã gửi lại mã OTP đặt lại mật khẩu về email của bạn.');
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể gửi lại OTP');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -170,19 +184,24 @@ const LoginPage = () => {
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>Mật khẩu</Form.Label>
-              <Form.Control
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required
-              />
+              <InputGroup>
+                <Form.Control
+                  type={showPw ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  required
+                />
+                <Button variant="outline-secondary" onClick={() => setShowPw(!showPw)} tabIndex={-1} style={{ borderTopRightRadius: 12, borderBottomRightRadius: 12 }}>
+                  {showPw ? '🙈' : '👁️'}
+                </Button>
+              </InputGroup>
             </Form.Group>
             <Form.Group className="mb-3">
               <Form.Label>CAPTCHA</Form.Label>
               <div className="d-flex align-items-center gap-2 mb-2">
                 <div
                   style={{ minWidth: 160 }}
-                  dangerouslySetInnerHTML={{ __html: captcha.captchaSvg || '' }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(captcha.captchaSvg || '') }}
                 />
                 <Button type="button" variant="outline-secondary" onClick={loadCaptcha}>
                   Làm mới
@@ -196,7 +215,10 @@ const LoginPage = () => {
               />
             </Form.Group>
             <div className="d-flex gap-2">
-              <Button type="submit">Đăng nhập</Button>
+              <Button type="submit" disabled={loading}>
+                {loading && <Spinner animation="border" size="sm" className="me-1" />}
+                Đăng nhập
+              </Button>
               <Button type="button" variant="link" className="px-0" onClick={switchToForgotMode}>
                 Quên mật khẩu?
               </Button>
@@ -227,30 +249,43 @@ const LoginPage = () => {
                 </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>Mật khẩu mới</Form.Label>
-                  <Form.Control
-                    type="password"
-                    value={forgotForm.newPassword}
-                    onChange={(e) => setForgotForm({ ...forgotForm, newPassword: e.target.value })}
-                    required
-                  />
+                  <InputGroup>
+                    <Form.Control
+                      type={showNewPw ? 'text' : 'password'}
+                      value={forgotForm.newPassword}
+                      onChange={(e) => setForgotForm({ ...forgotForm, newPassword: e.target.value })}
+                      required
+                    />
+                    <Button variant="outline-secondary" onClick={() => setShowNewPw(!showNewPw)} tabIndex={-1} style={{ borderTopRightRadius: 12, borderBottomRightRadius: 12 }}>
+                      {showNewPw ? '🙈' : '👁️'}
+                    </Button>
+                  </InputGroup>
                 </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>Nhập lại mật khẩu mới</Form.Label>
-                  <Form.Control
-                    type="password"
-                    value={forgotForm.confirmPassword}
-                    onChange={(e) => setForgotForm({ ...forgotForm, confirmPassword: e.target.value })}
-                    required
-                  />
+                  <InputGroup>
+                    <Form.Control
+                      type={showConfirmPw ? 'text' : 'password'}
+                      value={forgotForm.confirmPassword}
+                      onChange={(e) => setForgotForm({ ...forgotForm, confirmPassword: e.target.value })}
+                      required
+                    />
+                    <Button variant="outline-secondary" onClick={() => setShowConfirmPw(!showConfirmPw)} tabIndex={-1} style={{ borderTopRightRadius: 12, borderBottomRightRadius: 12 }}>
+                      {showConfirmPw ? '🙈' : '👁️'}
+                    </Button>
+                  </InputGroup>
                 </Form.Group>
               </>
             )}
 
             <div className="d-flex gap-2 flex-wrap">
-              <Button type="submit">{forgotOtpSent ? 'Xác nhận OTP & đổi mật khẩu' : 'Gửi mã OTP'}</Button>
+              <Button type="submit" disabled={loading}>
+                {loading && <Spinner animation="border" size="sm" className="me-1" />}
+                {forgotOtpSent ? 'Xác nhận OTP & đổi mật khẩu' : 'Gửi mã OTP'}
+              </Button>
               {forgotOtpSent && (
-                <Button type="button" variant="outline-secondary" onClick={onForgotResendOtp}>
-                  Gửi lại OTP
+                <Button type="button" variant="outline-secondary" onClick={onForgotResendOtp} disabled={loading}>
+                  {loading ? <Spinner animation="border" size="sm" /> : 'Gửi lại OTP'}
                 </Button>
               )}
               <Button type="button" variant="link" className="px-0" onClick={switchToLoginMode}>

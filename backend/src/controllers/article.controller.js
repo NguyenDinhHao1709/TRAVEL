@@ -1,130 +1,60 @@
 const pool = require('../config/db');
 
-const getArticles = async (req, res) => {
-  try {
-    const { tourId = '', limit = '' } = req.query;
+exports.getAllArticles = async (req, res) => {
+  const { tourId, limit } = req.query;
+  let query = `
+    SELECT a.*, t.title as tour_title
+    FROM articles a LEFT JOIN tours t ON t.id = a.tour_id
+    WHERE 1=1
+  `;
+  const params = [];
 
-    const parsedTourId = Number(tourId);
-    const safeTourId = Number.isNaN(parsedTourId) || parsedTourId <= 0 ? null : parsedTourId;
+  if (tourId) { query += ' AND a.tour_id = ?'; params.push(tourId); }
 
-    const parsedLimit = Number(limit);
-    const safeLimit = Number.isNaN(parsedLimit) || parsedLimit <= 0 ? 100 : Math.min(parsedLimit, 100);
+  query += ' ORDER BY a.created_at DESC';
+  if (limit) { query += ' LIMIT ?'; params.push(Number(limit)); }
 
-    const [rows] = await pool.query(
-      `SELECT a.id, a.tour_id, a.title, a.content, a.image_url, a.created_at,
-              t.title AS tour_title, t.destination AS tour_destination
-       FROM articles a
-       LEFT JOIN tours t ON t.id = a.tour_id
-       WHERE (? IS NULL OR a.tour_id = ?)
-       ORDER BY a.created_at DESC
-       LIMIT ?`,
-      [safeTourId, safeTourId, safeLimit]
-    );
-
-    return res.json(rows);
-  } catch (error) {
-    if (error.code === 'ER_NO_SUCH_TABLE' || error.code === 'ER_BAD_FIELD_ERROR') {
-      return res.json([]);
-    }
-
-    return res.status(500).json({ message: error.message });
-  }
+  const [rows] = await pool.execute(query, params);
+  res.json(rows);
 };
 
-const getArticleById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [rows] = await pool.query(
-      `SELECT a.id, a.tour_id, a.title, a.content, a.image_url, a.created_at,
-              t.title AS tour_title, t.destination AS tour_destination
-       FROM articles a
-       LEFT JOIN tours t ON t.id = a.tour_id
-       WHERE a.id = ?
-       LIMIT 1`,
-      [id]
-    );
-
-    if (!rows.length) {
-      return res.status(404).json({ message: 'Không tìm thấy bài viết' });
-    }
-
-    return res.json(rows[0]);
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
+exports.getArticleById = async (req, res) => {
+  const [rows] = await pool.execute(
+    `SELECT a.*, t.title as tour_title FROM articles a LEFT JOIN tours t ON t.id = a.tour_id WHERE a.id = ? LIMIT 1`,
+    [req.params.id]
+  );
+  if (rows.length === 0) return res.status(404).json({ message: 'Không tìm thấy bài viết' });
+  res.json(rows[0]);
 };
 
-const createArticle = async (req, res) => {
-  try {
-    const { tourId = null, title = '', content = '', imageUrl = '' } = req.body;
-    const normalizedTitle = String(title).trim();
-    const normalizedContent = String(content || '').trim();
-    const normalizedImageUrl = String(imageUrl || '').trim() || null;
+exports.createArticle = async (req, res) => {
+  const { title, content, imageUrl, tourId } = req.body;
+  if (!title) return res.status(400).json({ message: 'Tiêu đề không được để trống' });
 
-    if (!normalizedTitle) {
-      return res.status(400).json({ message: 'Tiêu đề bài viết là bắt buộc' });
-    }
-
-    const parsedTourId = Number(tourId);
-    const safeTourId = Number.isNaN(parsedTourId) || parsedTourId <= 0 ? null : parsedTourId;
-
-    const [result] = await pool.query(
-      `INSERT INTO articles (tour_id, title, content, image_url)
-       VALUES (?, ?, ?, ?)`,
-      [safeTourId, normalizedTitle, normalizedContent || null, normalizedImageUrl]
-    );
-
-    return res.status(201).json({ id: result.insertId, message: 'Tạo bài viết thành công' });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
+  const [result] = await pool.execute(
+    'INSERT INTO articles (title, content, image_url, tour_id) VALUES (?, ?, ?, ?)',
+    [title, content || null, imageUrl || null, tourId || null]
+  );
+  res.status(201).json({ id: result.insertId, message: 'Tạo bài viết thành công' });
 };
 
-const updateArticle = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { tourId = null, title = '', content = '', imageUrl = '' } = req.body;
-    const normalizedTitle = String(title).trim();
-    const normalizedContent = String(content || '').trim();
-    const normalizedImageUrl = String(imageUrl || '').trim() || null;
+exports.updateArticle = async (req, res) => {
+  const { id } = req.params;
+  const { title, content, imageUrl, tourId } = req.body;
 
-    if (!normalizedTitle) {
-      return res.status(400).json({ message: 'Tiêu đề bài viết là bắt buộc' });
-    }
+  const [existing] = await pool.execute('SELECT id FROM articles WHERE id = ? LIMIT 1', [id]);
+  if (existing.length === 0) return res.status(404).json({ message: 'Không tìm thấy bài viết' });
 
-    const parsedTourId = Number(tourId);
-    const safeTourId = Number.isNaN(parsedTourId) || parsedTourId <= 0 ? null : parsedTourId;
-
-    const [result] = await pool.query(
-      `UPDATE articles
-       SET tour_id = ?, title = ?, content = ?, image_url = ?
-       WHERE id = ?`,
-      [safeTourId, normalizedTitle, normalizedContent || null, normalizedImageUrl, id]
-    );
-
-    if (!result.affectedRows) {
-      return res.status(404).json({ message: 'Không tìm thấy bài viết' });
-    }
-
-    return res.json({ message: 'Cập nhật bài viết thành công' });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
+  await pool.execute(
+    'UPDATE articles SET title=?, content=?, image_url=?, tour_id=?, updated_at=NOW() WHERE id=?',
+    [title, content || null, imageUrl || null, tourId || null, id]
+  );
+  res.json({ message: 'Cập nhật bài viết thành công' });
 };
 
-const deleteArticle = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [result] = await pool.query('DELETE FROM articles WHERE id = ?', [id]);
-
-    if (!result.affectedRows) {
-      return res.status(404).json({ message: 'Không tìm thấy bài viết' });
-    }
-
-    return res.json({ message: 'Xóa bài viết thành công' });
-  } catch (error) {
-    return res.status(500).json({ message: error.message });
-  }
+exports.deleteArticle = async (req, res) => {
+  const [existing] = await pool.execute('SELECT id FROM articles WHERE id = ? LIMIT 1', [req.params.id]);
+  if (existing.length === 0) return res.status(404).json({ message: 'Không tìm thấy bài viết' });
+  await pool.execute('DELETE FROM articles WHERE id = ?', [req.params.id]);
+  res.json({ message: 'Xóa bài viết thành công' });
 };
-
-module.exports = { getArticles, getArticleById, createArticle, updateArticle, deleteArticle };

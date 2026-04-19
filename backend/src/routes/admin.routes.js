@@ -1,41 +1,18 @@
 const express = require('express');
-const {
-  getUsers,
-  createUser,
-  updateUser,
-  getUserDetail,
-  lockUser,
-  unlockUser,
-  resetUserPassword,
-  deleteUser,
-  createArticle,
-  getArticles,
-  createBanner,
-  getBanners,
-  getDashboard,
-  getSystemLogs,
-  getBookingReport
-} = require('../controllers/admin.controller');
-const { authenticate, authorize } = require('../middleware/auth');
-
+const adminController = require('../controllers/admin.controller');
+const authenticate = require('../middleware/auth');
 const router = express.Router();
 
-router.use(authenticate, authorize('admin'));
+const requireAdmin = [authenticate, authenticate.requireRole('admin')];
 
-router.get('/dashboard', getDashboard);
-router.get('/bookings-report', getBookingReport);
-router.get('/users', getUsers);
-router.get('/users/:id/detail', getUserDetail);
-router.post('/users', createUser);
-router.put('/users/:id', updateUser);
-router.patch('/users/:id/lock', lockUser);
-router.patch('/users/:id/unlock', unlockUser);
-router.patch('/users/:id/reset-password', resetUserPassword);
-router.delete('/users/:id', deleteUser);
-router.get('/articles', getArticles);
-router.post('/articles', createArticle);
-router.get('/banners', getBanners);
-router.post('/banners', createBanner);
-router.get('/logs', getSystemLogs);
+router.get('/dashboard', ...requireAdmin, adminController.getDashboardStats);
+router.get('/users', ...requireAdmin, adminController.getUsers);
+router.get('/users/:userId/detail', ...requireAdmin, adminController.getUserDetail);
+router.patch('/users/:userId/lock', ...requireAdmin, adminController.lockUser);
+router.patch('/users/:userId/unlock', ...requireAdmin, adminController.unlockUser);
+router.delete('/users/:userId', ...requireAdmin, adminController.deleteUser);
+router.patch('/users/:userId/reset-password', ...requireAdmin, adminController.resetUserPassword);
+router.get('/logs', ...requireAdmin, adminController.getLogs);
+router.get('/bookings-report', ...requireAdmin, adminController.getBookingsReport);
 
 module.exports = router;

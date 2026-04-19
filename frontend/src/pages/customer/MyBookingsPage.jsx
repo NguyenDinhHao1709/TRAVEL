@@ -90,19 +90,18 @@ const MyBookingsPage = () => {
     }
   };
 
-  const payWithMoMo = async (bookingId) => {
+  const devSimulatePayment = async (bookingId) => {
     try {
-      const { data } = await client.post('/payments/momo/create-url', { bookingId });
-      window.location.href = data.paymentUrl;
+      await client.post(`/payments/dev-simulate/${bookingId}`);
+      setMessage('[DEV] Giả lập thanh toán thành công!');
+      loadBookings();
     } catch (error) {
-      if (!error.response) {
-        setMessage('Không kết nối được backend. Vui lòng kiểm tra server API đang chạy ở cổng 5000.');
-        return;
-      }
-
-      setMessage(error.response?.data?.message || 'Tạo URL thanh toán MoMo thất bại');
+      setMessage(error.response?.data?.message || 'Giả lập thanh toán thất bại');
     }
   };
+
+  const isDev = import.meta.env.DEV;
+
 
   const cancel = async (bookingId) => {
     try {
@@ -138,7 +137,9 @@ const MyBookingsPage = () => {
             {booking.payment_status === 'unpaid' && booking.booking_status !== 'cancelled' && (
               <>
                 <Button className="me-2" onClick={() => payWithVNPay(booking.id)}>Thanh toán VNPAY</Button>
-                <Button variant="outline-secondary" className="me-2" onClick={() => payWithMoMo(booking.id)}>Thanh toán MoMo</Button>
+                {isDev && (
+                  <Button variant="success" className="me-2" onClick={() => devSimulatePayment(booking.id)}>[DEV] Giả lập thanh toán</Button>
+                )}
                 {booking.booking_status === 'pending' && (
                   <Button variant="outline-danger" onClick={() => cancel(booking.id)}>Hủy đặt tour</Button>
                 )}

@@ -1,33 +1,36 @@
 const rateLimit = require('express-rate-limit');
 
-const buildLimiter = ({ windowMs, max, message }) => rateLimit({
-  windowMs,
-  max,
+// Skip rate limiting in development for automated testing
+const skipInDev = () => process.env.NODE_ENV !== 'production';
+
+const defaultLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 phút
+  max: 200,
+  skip: skipInDev,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { message }
+  message: { message: 'Quá nhiều yêu cầu, vui lòng thử lại sau' }
 });
 
-const authLimiter = buildLimiter({
+const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 120,
-  message: 'Too many auth requests, please try again later.'
+  max: 20,
+  skip: skipInDev,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Quá nhiều thử đăng nhập, vui lòng thử lại sau 15 phút' }
 });
 
-const loginLimiter = buildLimiter({
-  windowMs: 15 * 60 * 1000,
-  max: 12,
-  message: 'Too many login attempts, please try again in 15 minutes.'
+// Giới hạn gửi OTP: tối đa 3 lần / 5 phút mỗi IP (chống spam email)
+const otpLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 phút
+  max: 3,
+  skip: skipInDev,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Bạn đã gửi quá nhiều mã OTP. Vui lòng thử lại sau 5 phút' }
 });
 
-const otpRequestLimiter = buildLimiter({
-  windowMs: 10 * 60 * 1000,
-  max: 6,
-  message: 'Too many OTP requests, please wait before trying again.'
-});
-
-module.exports = {
-  authLimiter,
-  loginLimiter,
-  otpRequestLimiter
-};
+module.exports = defaultLimiter;
+module.exports.authLimiter = authLimiter;
+module.exports.otpLimiter = otpLimiter;

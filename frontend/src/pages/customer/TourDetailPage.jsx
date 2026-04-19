@@ -34,6 +34,11 @@ const TourDetailPage = () => {
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewMessage, setReviewMessage] = useState('');
+  const [customerReplyDrafts, setCustomerReplyDrafts] = useState({});
+  const [customerReplySubmitting, setCustomerReplySubmitting] = useState(null);
+  const [hasBookedTour, setHasBookedTour] = useState(false);
+  const [userReview, setUserReview] = useState(null);
+  const [deleteReviewSubmitting, setDeleteReviewSubmitting] = useState(false);
   const todayString = new Date().toISOString().split('T')[0];
 
   const loadTour = async () => {
@@ -69,6 +74,23 @@ const TourDetailPage = () => {
   useEffect(() => {
     loadTour();
   }, [id]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'user') return;
+    const checkUserData = async () => {
+      const [bookingsRes, myReviewRes] = await Promise.allSettled([
+        client.get('/bookings/my'),
+        client.get(`/reviews/my/${id}`)
+      ]);
+      const bookings = bookingsRes.status === 'fulfilled' ? bookingsRes.value.data : [];
+      setHasBookedTour(Array.isArray(bookings) && bookings.some(
+        (b) => b.tour_id === Number(id) &&
+          (['confirmed', 'completed'].includes(b.booking_status) || b.payment_status === 'paid')
+      ));
+      setUserReview(myReviewRes.status === 'fulfilled' ? myReviewRes.value.data : null);
+    };
+    checkUserData();
+  }, [id, user?.id]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -152,11 +174,45 @@ const TourDetailPage = () => {
       const { data } = await client.post('/reviews', payload);
       setReviewMessage(data.message || 'Gửi đánh giá thành công');
       setReviewForm({ rating: 5, comment: '' });
+      // Reload user review
+      const { data: myReview } = await client.get(`/reviews/my/${id}`);
+      setUserReview(myReview);
       await loadTour();
     } catch (error) {
       setReviewMessage(error.response?.data?.message || 'Không thể gửi đánh giá');
     } finally {
       setReviewSubmitting(false);
+    }
+  };
+
+  const deleteOwnReview = async () => {
+    if (!userReview) return;
+    setDeleteReviewSubmitting(true);
+    setReviewMessage('');
+    try {
+      await client.delete(`/reviews/${userReview.id}/my`);
+      setUserReview(null);
+      setReviewMessage('Đã xóa đánh giá. Bạn có thể đánh giá lại.');
+      await loadTour();
+    } catch (error) {
+      setReviewMessage(error.response?.data?.message || 'Không thể xóa đánh giá');
+    } finally {
+      setDeleteReviewSubmitting(false);
+    }
+  };
+
+  const submitCustomerReply = async (reviewId) => {
+    const reply = (customerReplyDrafts[reviewId] || '').trim();
+    if (!reply) return;
+    setCustomerReplySubmitting(reviewId);
+    try {
+      await client.patch(`/reviews/${reviewId}/customer-reply`, { reply });
+      setCustomerReplyDrafts(d => ({ ...d, [reviewId]: '' }));
+      await loadTour();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Không thể gửi trả lời');
+    } finally {
+      setCustomerReplySubmitting(null);
     }
   };
 
@@ -365,50 +421,77 @@ const TourDetailPage = () => {
             <Card.Body>
               <h5>Đánh giá tour</h5>
               {reviewMessage && <Alert variant="info" className="py-2">{reviewMessage}</Alert>}
-              <Form onSubmit={submitReview}>
-                <Form.Group className="mb-2">
-                  <Form.Label className="mb-1">Số sao</Form.Label>
-                  <div className="d-flex align-items-center gap-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        aria-label={`Chọn ${star} sao`}
-                        onClick={() => setReviewForm((current) => ({ ...current, rating: star }))}
-                        style={{
-                          border: 'none',
-                          background: 'transparent',
-                          padding: 0,
-                          lineHeight: 1,
-                          fontSize: '28px',
-                          cursor: 'pointer',
-                          color: star <= reviewForm.rating ? '#f59e0b' : '#cbd5e1'
-                        }}
-                      >
-                        {star <= reviewForm.rating ? '★' : '☆'}
-                      </button>
-                    ))}
-                    <span className="ms-2" style={{ color: '#6b7280', fontSize: '13px' }}>
-                      {reviewForm.rating}/5
-                    </span>
+
+              {!hasBookedTour ? (
+                <p className="text-muted mb-0" style={{ fontSize: 14 }}>
+                  Bạn cần đặt tour thành công để có thể đánh giá.
+                </p>
+              ) : userReview ? (
+                <div>
+                  <p className="text-muted mb-1" style={{ fontSize: 12 }}>Đánh giá của bạn:</p>
+                  <div style={{ color: '#f59e0b', fontSize: 20, marginBottom: 4 }}>
+                    {'★'.repeat(Math.max(0, Math.min(5, Number(userReview.rating) || 0)))}
+                    {'☆'.repeat(5 - Math.max(0, Math.min(5, Number(userReview.rating) || 0)))}
+                    <span style={{ color: '#6b7280', fontSize: 13, marginLeft: 6 }}>{userReview.rating}/5</span>
                   </div>
-                </Form.Group>
+                  {userReview.comment && (
+                    <p style={{ fontSize: 14, color: '#374151', marginBottom: 10 }}>{userReview.comment}</p>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline-danger"
+                    disabled={deleteReviewSubmitting}
+                    onClick={deleteOwnReview}
+                  >
+                    {deleteReviewSubmitting ? 'Đang xóa...' : 'Xóa để đánh giá lại'}
+                  </Button>
+                </div>
+              ) : (
+                <Form onSubmit={submitReview}>
+                  <Form.Group className="mb-2">
+                    <Form.Label className="mb-1">Số sao</Form.Label>
+                    <div className="d-flex align-items-center gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          aria-label={`Chọn ${star} sao`}
+                          onClick={() => setReviewForm((current) => ({ ...current, rating: star }))}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            padding: 0,
+                            lineHeight: 1,
+                            fontSize: '28px',
+                            cursor: 'pointer',
+                            color: star <= reviewForm.rating ? '#f59e0b' : '#cbd5e1'
+                          }}
+                        >
+                          {star <= reviewForm.rating ? '★' : '☆'}
+                        </button>
+                      ))}
+                      <span className="ms-2" style={{ color: '#6b7280', fontSize: '13px' }}>
+                        {reviewForm.rating}/5
+                      </span>
+                    </div>
+                  </Form.Group>
 
-                <Form.Group className="mb-2">
-                  <Form.Label className="mb-1">Bình luận</Form.Label>
-                  <Form.Control
-                    as="textarea"
-                    rows={3}
-                    value={reviewForm.comment}
-                    onChange={(e) => setReviewForm((current) => ({ ...current, comment: e.target.value }))}
-                    placeholder="Chia sẻ trải nghiệm của bạn về tour"
-                  />
-                </Form.Group>
+                  <Form.Group className="mb-2">
+                    <Form.Label className="mb-1">Bình luận</Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={3}
+                      value={reviewForm.comment}
+                      onChange={(e) => setReviewForm((current) => ({ ...current, comment: e.target.value }))}
+                      placeholder="Chia sẻ trải nghiệm của bạn về tour"
+                    />
+                  </Form.Group>
 
-                <Button type="submit" size="sm" disabled={reviewSubmitting}>
-                  {reviewSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
-                </Button>
-              </Form>
+                  <Button type="submit" size="sm" disabled={reviewSubmitting}>
+                    {reviewSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+                  </Button>
+                </Form>
+              )}
             </Card.Body>
           </Card>
         )}
@@ -416,23 +499,36 @@ const TourDetailPage = () => {
         <Card>
           <Card.Body>
             <h5>Đánh giá</h5>
-            <ListGroup variant="flush">
-              {tour.reviews?.length ? tour.reviews.map((r) => (
-                <ListGroup.Item key={r.id}>
-                  <strong>{r.full_name}</strong>
-                  <div style={{ color: '#f59e0b', fontWeight: 700 }}>{renderStars(r.rating)}</div>
-                  {r.comment && <div>{r.comment}</div>}
-                  {r.staff_reply && (
-                    <div className="mt-2 p-2" style={{ background: '#f8f9fa', borderRadius: '8px', border: '1px solid #e9ecef' }}>
-                      <div style={{ fontWeight: 600, fontSize: '13px', color: '#0d6efd' }}>
-                        Phản hồi từ {r.reply_staff_name || 'nhân viên'}
-                      </div>
-                      <div>{r.staff_reply}</div>
+            {tour.reviews?.length ? tour.reviews.map((r) => (
+              <div key={r.id} style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: 16, marginBottom: 16 }}>
+                {/* Header: avatar + tên + sao */}
+                <div className="d-flex align-items-center gap-2 mb-2">
+                  <div style={{
+                    width: 36, height: 36, borderRadius: '50%',
+                    background: '#0d6efd', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontWeight: 700, fontSize: 15, flexShrink: 0
+                  }}>
+                    {(r.user_name || 'A').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <strong style={{ fontSize: 14 }}>{r.user_name || 'Người dùng'}</strong>
+                    <div style={{ color: '#f59e0b', fontSize: 15, lineHeight: 1.2 }}>
+                      {'★'.repeat(Math.max(0, Math.min(5, Number(r.rating) || 0)))}{'☆'.repeat(5 - Math.max(0, Math.min(5, Number(r.rating) || 0)))}
+                      <span style={{ color: '#6b7280', fontSize: 12, fontWeight: 400, marginLeft: 6 }}>{r.rating}/5</span>
                     </div>
-                  )}
-                </ListGroup.Item>
-              )) : <ListGroup.Item>Chưa có đánh giá</ListGroup.Item>}
-            </ListGroup>
+                  </div>
+                  <div style={{ marginLeft: 'auto', color: '#9ca3af', fontSize: 12 }}>
+                    {r.created_at ? new Date(r.created_at).toLocaleDateString('vi-VN') : ''}
+                  </div>
+                </div>
+
+                {/* Bình luận */}
+                {r.comment && (
+                  <div style={{ fontSize: 14, color: '#374151', marginTop: 4 }}>{r.comment}</div>
+                )}
+              </div>
+            )) : <p className="text-muted">Chưa có đánh giá nào</p>}
           </Card.Body>
         </Card>
       </Col>

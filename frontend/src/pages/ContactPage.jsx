@@ -15,7 +15,7 @@ const hcmBranch = {
   name: 'TRỤ SỞ TP. HỒ CHÍ MINH',
   address: '12 Nguyễn Văn Bảo, Phường Hạnh Thông, TP.HCM',
   hotline: '0354162165',
-  email: 'nguyendinhhao170909@gmail.com'
+  email: 'hk2travel@gmail.com'
 };
 
 const isValidGmail = (value) => /^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(value.trim());

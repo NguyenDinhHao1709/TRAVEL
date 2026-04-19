@@ -72,13 +72,18 @@ const ArticlesPage = () => {
       setMessage('');
 
       let uploadedImageUrl = form.imageUrl.trim();
+      let uploadWarning = '';
       if (imageFile) {
-        const uploadForm = new FormData();
-        uploadForm.append('file', imageFile);
-        const { data: uploadData } = await client.post('/upload/article', uploadForm, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        uploadedImageUrl = uploadData?.imageUrl || '';
+        try {
+          const uploadForm = new FormData();
+          uploadForm.append('file', imageFile);
+          const { data: uploadData } = await client.post('/upload/article', uploadForm, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+          uploadedImageUrl = uploadData?.imageUrl || uploadedImageUrl;
+        } catch {
+          uploadWarning = ' (Không thể tải ảnh lên, bài viết sẽ lưu không có ảnh mới)';
+        }
       }
 
       const payload = {
@@ -90,10 +95,10 @@ const ArticlesPage = () => {
 
       if (editingId) {
         await client.put(`/articles/${editingId}`, payload);
-        setMessage('Cập nhật bài viết thành công');
+        setMessage('Cập nhật bài viết thành công' + uploadWarning);
       } else {
         await client.post('/articles', payload);
-        setMessage('Thêm bài viết thành công');
+        setMessage('Thêm bài viết thành công' + uploadWarning);
       }
 
       resetForm();

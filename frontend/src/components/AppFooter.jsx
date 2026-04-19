@@ -25,7 +25,7 @@ const AppFooter = () => {
                 </a>
               </li>
               <li>Điện thoại: <a href="tel:0354162165">0354162165</a></li>
-              <li>Email: <a href="mailto:nguyendinhhao170909@gmail.com">nguyendinhhao170909@gmail.com</a></li>
+              <li>Email: <a href="mailto:hk2travel@gmail.com">hk2travel@gmail.com</a></li>
             </ul>
           </Col>
         </Row>
