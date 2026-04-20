@@ -10,7 +10,17 @@ module.exports = {
   uploadImage: (buffer, folder = 'tours') => {
     return new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { folder, resource_type: 'image' },
+        {
+          folder,
+          resource_type: 'image',
+          quality: 'auto:best',
+          fetch_format: 'auto',
+          transformation: [
+            { width: 1920, crop: 'limit' },
+            { quality: 'auto:best' },
+            { fetch_format: 'auto' }
+          ]
+        },
         (error, result) => {
           if (error) reject(error);
           else resolve({ url: result.secure_url, publicId: result.public_id });

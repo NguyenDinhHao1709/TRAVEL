@@ -135,6 +135,10 @@ exports.staffCancelBooking = async (req, res) => {
   );
   await pool.execute('UPDATE tours SET slots = slots + ? WHERE id = ?', [booking.people_count, booking.tour_id]);
 
+  // Log
+  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
+    [staffId, req.user.role, 'Hủy booking', `Hủy & hoàn vé booking ID: ${id}`]).catch(() => {});
+
   res.json({ message: 'Đã xử lý hoàn vé' });
 };
 
@@ -148,6 +152,11 @@ exports.updateBooking = async (req, res) => {
     [bookingStatus || null, paymentStatus || null, staffId, id]
   );
   res.json({ message: 'Cập nhật booking thành công' });
+
+  // Log
+  const action = bookingStatus === 'confirmed' ? 'Xác nhận booking' : 'Cập nhật booking';
+  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
+    [req.user.id, req.user.role, action, `${action} ID: ${id} (status: ${bookingStatus || 'unchanged'}, payment: ${paymentStatus || 'unchanged'})`]).catch(() => {});
 };
 
 exports.deleteBooking = async (req, res) => {

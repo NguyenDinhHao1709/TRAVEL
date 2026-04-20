@@ -38,6 +38,7 @@ exports.getUsers = async (req, res) => {
 
 // User detail + bookings
 exports.getUserDetail = async (req, res) => {
+  try {
   const { userId } = req.params;
   const [userRows] = await pool.execute(
     'SELECT id, full_name, email, role, phone, is_locked, is_deleted, created_at FROM users WHERE id = ? LIMIT 1',
@@ -88,48 +89,68 @@ exports.getUserDetail = async (req, res) => {
   }
 
   res.json({ user, bookings, payments, reviews, handledBookings });
+  } catch (err) {
+    console.error('[Admin] getUserDetail error:', err);
+    res.status(500).json({ message: 'Không thể tải chi tiết người dùng' });
+  }
 };
 
 // Lock user
 exports.lockUser = async (req, res) => {
+  try {
   const { userId } = req.params;
   const [existing] = await pool.execute("SELECT id, role FROM users WHERE id = ? LIMIT 1", [userId]);
   if (existing.length === 0) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
   if (existing[0].role === 'admin') return res.status(400).json({ message: 'Không thể khóa tài khoản admin' });
 
   await pool.execute('UPDATE users SET is_locked = 1, updated_at = NOW() WHERE id = ?', [userId]);
-  await pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)', [
-    req.user.id, 'admin', 'Lock user', `Locked user ID ${userId}`
-  ]);
+  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)', [
+    req.user.id, req.user.role, 'Khóa tài khoản', `Khóa tài khoản user ID ${userId}`
+  ]).catch(() => {});
   res.json({ message: 'Đã khóa tài khoản' });
+  } catch (err) {
+    console.error('[Admin] lockUser error:', err);
+    res.status(500).json({ message: 'Không thể khóa tài khoản' });
+  }
 };
 
 // Unlock user
 exports.unlockUser = async (req, res) => {
+  try {
   const { userId } = req.params;
   await pool.execute('UPDATE users SET is_locked = 0, updated_at = NOW() WHERE id = ?', [userId]);
-  await pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)', [
-    req.user.id, 'admin', 'Unlock user', `Unlocked user ID ${userId}`
-  ]);
+  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)', [
+    req.user.id, req.user.role, 'Mở khóa tài khoản', `Mở khóa tài khoản user ID ${userId}`
+  ]).catch(() => {});
   res.json({ message: 'Đã mở khóa tài khoản' });
+  } catch (err) {
+    console.error('[Admin] unlockUser error:', err);
+    res.status(500).json({ message: 'Không thể mở khóa tài khoản' });
+  }
 };
 
 // Hard delete user
 exports.deleteUser = async (req, res) => {
+  try {
   const { userId } = req.params;
   const [existing] = await pool.execute("SELECT id, role FROM users WHERE id = ? LIMIT 1", [userId]);
   if (existing.length === 0) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
   if (existing[0].role === 'admin') return res.status(400).json({ message: 'Không thể xóa tài khoản admin' });
 
   await pool.execute('DELETE FROM users WHERE id = ?', [userId]);
-  await pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)', [
-    req.user.id, 'admin', 'Delete user', `Deleted user ID ${userId}`
-  ]);
+  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)', [
+    req.user.id, req.user.role, 'Xóa tài khoản', `Xóa vĩnh viễn user ID ${userId}`
+  ]).catch(() => {});
   res.json({ message: 'Đã xóa tài khoản' });
+  } catch (err) {
+    console.error('[Admin] deleteUser error:', err);
+    res.status(500).json({ message: 'Không thể xóa tài khoản' });
+  }
 };
 
 // Reset user password
 exports.resetUserPassword = async (req, res) => {
+  try {
   const { userId } = req.params;
   const { sendEmail: shouldSendEmail } = req.body;
 
@@ -163,6 +184,10 @@ exports.resetUserPassword = async (req, res) => {
     : `Đã reset mật khẩu. Mật khẩu tạm: ${tempPassword}`;
 
   res.json({ message: msg, tempPassword: shouldSendEmail ? undefined : tempPassword });
+  } catch (err) {
+    console.error('[Admin] resetUserPassword error:', err);
+    res.status(500).json({ message: 'Không thể reset mật khẩu' });
+  }
 };
 
 // Activity logs
@@ -197,11 +222,11 @@ exports.getBookingsReport = async (req, res) => {
   let selected = null;
 
   if (groupBy === 'day') {
-    selectExpr = 'DATE(created_at) as period';
+    selectExpr = "DATE_FORMAT(created_at, '%d/%m/%Y') as period";
     if (day) { whereClause = 'WHERE DATE(created_at) = ?'; params.push(day); selected = day; }
     else { whereClause = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)'; }
   } else if (groupBy === 'month') {
-    selectExpr = "DATE_FORMAT(created_at, '%Y-%m') as period";
+    selectExpr = "DATE_FORMAT(created_at, '%m/%Y') as period";
     if (month) { whereClause = "WHERE DATE_FORMAT(created_at, '%Y-%m') = ?"; params.push(month); selected = month; }
     else { whereClause = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)'; }
   } else {

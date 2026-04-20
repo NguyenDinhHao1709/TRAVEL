@@ -41,4 +41,8 @@ exports.markContactAsRead = async (req, res) => {
   const { id } = req.params;
   await pool.execute('UPDATE contact_messages SET is_read = 1, updated_at = NOW() WHERE id = ?', [id]);
   res.json({ message: 'Đã đánh dấu đã đọc' });
+
+  // Log
+  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
+    [req.user.id, req.user.role, 'Đọc liên hệ', `Đánh dấu đã đọc liên hệ ID: ${id}`]).catch(() => {});
 };

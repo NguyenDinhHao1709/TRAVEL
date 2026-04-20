@@ -1,15 +1,16 @@
 const crypto = require('crypto');
-const querystring = require('querystring');
 
-const VNPAY_URL = process.env.VNPAY_URL || 'https://sandbox.vnpayment.vn/paymentv2/vn-pay.html';
-const TMN_CODE = process.env.VNPAY_TMN_CODE || '';
-const HASH_SECRET = process.env.VNPAY_HASH_SECRET || '';
-const RETURN_URL = process.env.VNPAY_RETURN_URL || 'http://localhost:5173/payment-return';
+const VNPAY_URL = (process.env.VNPAY_URL || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html').trim();
+const TMN_CODE = (process.env.VNPAY_TMN_CODE || '').trim();
+const HASH_SECRET = (process.env.VNPAY_HASH_SECRET || '').trim();
+const RETURN_URL = (process.env.VNPAY_RETURN_URL || 'http://localhost:5173/payment-return').trim();
 
-function sortObject(obj) {
-  const sorted = {};
-  for (const key of Object.keys(obj).sort()) sorted[key] = obj[key];
-  return sorted;
+// Log config on load
+console.log('[VNPay] TMN_CODE:', TMN_CODE, '| SECRET:', HASH_SECRET, '| URL:', VNPAY_URL);
+
+// PHP-compatible urlencode: encodeURIComponent + space→+
+function vnpEncode(str) {
+  return encodeURIComponent(String(str)).replace(/%20/g, '+');
 }
 
 module.exports = {
@@ -24,47 +25,71 @@ module.exports = {
       pad(now.getMinutes()) +
       pad(now.getSeconds());
 
+    const expire = new Date(now.getTime() + 15 * 60 * 1000);
+    const expireDate =
+      expire.getFullYear() +
+      pad(expire.getMonth() + 1) +
+      pad(expire.getDate()) +
+      pad(expire.getHours()) +
+      pad(expire.getMinutes()) +
+      pad(expire.getSeconds());
+
     const txnRef = `${bookingId}_${Date.now()}`;
 
-    let params = {
+    // Remove Vietnamese diacritics and special chars
+    const safeOrderInfo = (orderInfo || `Thanh toan don hang ${bookingId}`)
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+      .replace(/[^a-zA-Z0-9 ]/g, '');
+
+    // Build params object (raw, unencoded values)
+    const params = {
       vnp_Version: '2.1.0',
       vnp_Command: 'pay',
       vnp_TmnCode: TMN_CODE,
       vnp_Locale: 'vn',
       vnp_CurrCode: 'VND',
       vnp_TxnRef: txnRef,
-      vnp_OrderInfo: orderInfo || `Thanh toan don hang ${bookingId}`,
-      vnp_OrderType: 'billpayment',
-      vnp_Amount: String(amount * 100),
+      vnp_OrderInfo: safeOrderInfo,
+      vnp_OrderType: 'other',
+      vnp_Amount: String(Math.round(amount * 100)),
       vnp_ReturnUrl: RETURN_URL,
       vnp_IpAddr: ipAddr || '127.0.0.1',
-      vnp_CreateDate: createDate
+      vnp_CreateDate: createDate,
+      vnp_ExpireDate: expireDate,
     };
 
-    params = sortObject(params);
-    // Signature must be computed on raw (non-encoded) values
-    const signData = querystring.stringify(params, '&', '=', { encodeURIComponent: (v) => v });
-    const hmac = crypto.createHmac('sha512', HASH_SECRET);
-    params.vnp_SecureHash = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
+    // Sort keys alphabetically, build encoded query parts (matching PHP urlencode exactly)
+    const sortedKeys = Object.keys(params).sort();
+    const encodedParts = sortedKeys.map(key => vnpEncode(key) + '=' + vnpEncode(params[key]));
+    const signData = encodedParts.join('&');
 
-    // URL must use proper percent-encoding
-    const urlParams = Object.entries(params)
-      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-      .join('&');
+    // HMAC-SHA512 (default for VNPay)
+    const signed = crypto.createHmac('sha512', HASH_SECRET)
+      .update(Buffer.from(signData, 'utf-8')).digest('hex');
 
-    return {
-      paymentUrl: `${VNPAY_URL}?${urlParams}`,
-      txnRef
-    };
+    const paymentUrl = VNPAY_URL + '?' + signData + '&vnp_SecureHash=' + signed;
+
+    // Debug
+    console.log('[VNPay] signData:', signData);
+    console.log('[VNPay] hash512:', signed);
+    console.log('[VNPay] paymentUrl:', paymentUrl);
+
+    return { paymentUrl, txnRef };
   },
 
   verifyReturn: (params) => {
     const secureHash = params.vnp_SecureHash;
-    const { vnp_SecureHash, vnp_SecureHashType, ...rest } = params; // eslint-disable-line no-unused-vars
-    const sorted = sortObject(rest);
-    const signData = querystring.stringify(sorted, '&', '=', { encodeURIComponent: (str) => str });
-    const hmac = crypto.createHmac('sha512', HASH_SECRET);
-    const checkHash = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
+    const copyParams = { ...params };
+    delete copyParams.vnp_SecureHash;
+    delete copyParams.vnp_SecureHashType;
+
+    const sortedKeys = Object.keys(copyParams).sort();
+    const encodedParts = sortedKeys.map(key => vnpEncode(key) + '=' + vnpEncode(copyParams[key]));
+    const signData = encodedParts.join('&');
+
+    const checkHash = crypto.createHmac('sha512', HASH_SECRET)
+      .update(Buffer.from(signData, 'utf-8')).digest('hex');
 
     if (!HASH_SECRET || checkHash !== secureHash) {
       return { valid: false, responseCode: '97' };

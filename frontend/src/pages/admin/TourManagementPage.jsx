@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Card, Form, Button, Row, Col, Alert, Table, Badge, Modal, ProgressBar, InputGroup } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 import ImageUpload from '../../components/ImageUpload';
 import client from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 const initialForm = {
   title: '',
@@ -230,10 +232,19 @@ const TourManagementPage = () => {
     return true;
   });
 
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const backUrl = user?.role === 'staff' ? '/staff' : '/admin';
+
   return (
     <>
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <h3 className="mb-0">Quản lý tour</h3>
+        <div className="d-flex align-items-center gap-2">
+          <Button variant="outline-secondary" size="sm" onClick={() => navigate(backUrl)}>
+            ← Quay lại trang quản trị
+          </Button>
+          <h3 className="mb-0">Quản lý tour</h3>
+        </div>
         <span className="text-muted">{filteredTours.length} / {tours.length} tour</span>
       </div>
       {message && <Alert variant="info" dismissible onClose={() => setMessage('')}>{message}</Alert>}

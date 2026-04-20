@@ -23,7 +23,7 @@ const SLIDES = [
     desc: 'Cầu Vàng, phố cổ Hội An và những danh thắng nổi tiếng miền Trung.',
   },
   {
-    image: '/uploads/halong.jpg',
+    image: '/uploads/slider1.jpg.jpg',
     badge: 'Thiên Nhiên Hùng Vĩ',
     desc: 'Di sản thiên nhiên thế giới Vịnh Hạ Long cùng cố đô Hoa Lư thơ mộng.',
   },
@@ -48,13 +48,15 @@ const TRANSPORT_LABELS = {
 };
 
 const DESTINATIONS = [
-  { name: 'Đà Nẵng', image: '/uploads/pho-co-hoi-an-di-san-kien-truc-an-tuong-cua-the-gioi-15-1617438211.jpg', search: 'Đà Nẵng' },
-  { name: 'Hạ Long', image: '/uploads/halong.jpg', search: 'Hạ Long' },
-  { name: 'Phú Quốc', image: '/uploads/1776577692670_0ioey2drwbo9.jpg', search: 'Phú Quốc' },
-  { name: 'Sapa', image: '/uploads/slider1.jpg.jpg', search: 'Sapa' },
-  { name: 'Nha Trang', image: '/uploads/halong.jpg', search: 'Nha Trang' },
-  { name: 'Huế', image: '/uploads/pho-co-hoi-an-di-san-kien-truc-an-tuong-cua-the-gioi-15-1617438211.jpg', search: 'Huế' },
+  { name: 'Đà Nẵng', search: 'Đà Nẵng' },
+  { name: 'Hạ Long', search: 'Hạ Long' },
+  { name: 'Phú Quốc', search: 'Phú Quốc' },
+  { name: 'Sapa', search: 'Sapa' },
+  { name: 'Nha Trang', search: 'Nha Trang' },
+  { name: 'Huế', search: 'Huế' },
 ];
+
+const DEST_FALLBACK_IMG = '/uploads/halong.jpg';
 
 const TOURS_PER_PAGE = 8;
 
@@ -118,6 +120,11 @@ const TourListPage = () => {
   /* ---------- Pagination ---------- */
   const totalPages = Math.max(1, Math.ceil(tours.length / TOURS_PER_PAGE));
   const pagedTours = tours.slice((currentPage - 1) * TOURS_PER_PAGE, currentPage * TOURS_PER_PAGE);
+
+  const getDestImage = (searchName) => {
+    const match = tours.find((t) => t.destination && t.destination.toLowerCase().includes(searchName.toLowerCase()) && t.image_url);
+    return match ? match.image_url : DEST_FALLBACK_IMG;
+  };
 
   const goToDestination = (dest) => {
     setFilters((f) => ({ ...f, destination: dest }));
@@ -271,7 +278,7 @@ const TourListPage = () => {
                 tabIndex={0}
                 onKeyDown={(e) => e.key === 'Enter' && goToDestination(dest.search)}
               >
-                <img src={dest.image} alt={dest.name} className="dest-card-img" />
+                <img src={getDestImage(dest.search)} alt={dest.name} className="dest-card-img" />
                 <div className="dest-card-overlay">
                   <span className="dest-card-name">{dest.name}</span>
                 </div>

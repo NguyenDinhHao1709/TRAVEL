@@ -169,6 +169,7 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 8px;
   padding: 0.4rem 0.72rem !important;
   font-size: 0.91rem;
+  white-space: nowrap;
   transition: background 0.22s var(--transition-smooth), color 0.22s var(--transition-smooth), transform 0.18s;
   position: relative;
 }
@@ -230,6 +231,52 @@ h1, h2, h3, h4, h5, h6 {
   color: #f0f8ff;
   font-weight: 700;
   font-size: 0.9rem;
+}
+
+/* User dropdown in navbar */
+.app-user-dropdown-nav {
+  flex-shrink: 0;
+}
+
+.app-user-dropdown .nav-link.dropdown-toggle {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px !important;
+  padding: 0.35rem 0.9rem !important;
+  white-space: nowrap;
+}
+
+.app-user-dropdown .nav-link.dropdown-toggle:hover {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+
+.app-user-toggle {
+  color: #f0f8ff;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.app-user-dropdown .dropdown-menu {
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+  padding: 0.5rem;
+  min-width: 220px;
+  animation: scaleIn 0.2s var(--transition-smooth) both;
+  transform-origin: top right;
+}
+
+.app-user-dropdown .dropdown-item {
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background 0.15s, padding-left 0.2s;
+}
+
+.app-user-dropdown .dropdown-item:hover {
+  background: linear-gradient(135deg, #e8f4fd, #f0f7ff);
+  padding-left: 1.2rem;
 }
 
 .btn-accent {
@@ -557,6 +604,52 @@ h1, h2, h3, h4, h5, h6 {
   padding-left: 2px;
 }
 
+/* Footer quick links */
+.footer-link-list {
+  list-style: none;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.42rem;
+  font-size: 0.9rem;
+}
+
+.footer-link-list a {
+  color: #93c5fd;
+  text-decoration: none;
+  transition: color 0.2s var(--transition-smooth), padding-left 0.2s;
+}
+
+.footer-link-list a:hover {
+  color: #fff;
+  padding-left: 4px;
+}
+
+/* Footer social icons */
+.footer-social-icons {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.footer-social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #93c5fd;
+  transition: background 0.25s, color 0.25s, transform 0.25s;
+}
+
+.footer-social-link:hover {
+  background: #f59e0b;
+  color: #0b1e3d;
+  transform: translateY(-3px);
+}
+
 .footer-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.1);
@@ -816,6 +909,16 @@ h1, h2, h3, h4, h5, h6 {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .app-user-dropdown-nav {
+    margin-top: 0.5rem;
+    width: 100%;
+  }
+
+  .app-user-dropdown .nav-link.dropdown-toggle {
+    border-radius: 12px !important;
+    text-align: center;
   }
 
   .table {
@@ -1157,8 +1260,10 @@ img:not([loading="lazy"]) {
 }
 
 .tour-card-img {
+  width: 100%;
   height: 180px;
   object-fit: cover;
+  image-rendering: -webkit-optimize-contrast;
   transition: transform 0.5s var(--transition-smooth);
 }
 
@@ -1221,6 +1326,7 @@ img:not([loading="lazy"]) {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  image-rendering: -webkit-optimize-contrast;
   transition: transform 0.5s var(--transition-smooth);
 }
 
