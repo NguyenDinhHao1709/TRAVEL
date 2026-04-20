@@ -1,3 +1,4 @@
+const logService = require('../services/log.service');
 const pool = require('../config/db');
 
 exports.getAllReviews = async (req, res) => {
@@ -84,7 +85,15 @@ exports.createReview = async (req, res) => {
     "INSERT INTO reviews (user_id, tour_id, rating, comment, status) VALUES (?, ?, ?, ?, 'approved')",
     [userId, tourId, ratingNum, comment || null]
   );
-
+  // Ghi log tạo review
+  await logService.logAction({
+    req,
+    userId,
+    role: req.user.role,
+    action: 'Tạo đánh giá',
+    actionDetail: `Tạo đánh giá tourId=${tourId}`,
+    details: { tourId, rating: ratingNum, comment }
+  });
   res.status(201).json({ message: 'Gửi đánh giá thành công' });
 };
 
@@ -107,6 +116,15 @@ exports.deleteOwnReview = async (req, res) => {
   if (existing[0].user_id !== userId) return res.status(403).json({ message: 'Bạn không có quyền xóa đánh giá này' });
 
   await pool.execute('DELETE FROM reviews WHERE id = ?', [id]);
+  // Ghi log xóa review
+  await logService.logAction({
+    req,
+    userId,
+    role: req.user.role,
+    action: 'Xóa đánh giá',
+    actionDetail: `ReviewId=${id}`,
+    details: { reviewId: id }
+  });
   res.json({ message: 'Đã xóa đánh giá' });
 };
 
@@ -150,14 +168,81 @@ exports.customerReplyReview = async (req, res) => {
   res.json({ message: 'Đã gửi trả lời' });
 };
 
+// Chỉ cho phép user chỉnh sửa review 1 lần duy nhất
 exports.updateReview = async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body;
-  await pool.execute('UPDATE reviews SET status = ?, updated_at = NOW() WHERE id = ?', [status, id]);
-  res.json({ message: 'Cập nhật đánh giá thành công' });
+  const userId = req.user.id;
+  const { rating, comment, status } = req.body;
+
+  // Lấy review hiện tại
+  const [rows] = await pool.execute('SELECT * FROM reviews WHERE id = ? LIMIT 1', [id]);
+  if (rows.length === 0) return res.status(404).json({ message: 'Không tìm thấy đánh giá' });
+  const review = rows[0];
+
+  // Nếu là admin/staff thì cho phép cập nhật status như cũ
+  if (req.user.role === 'admin' || req.user.role === 'staff') {
+    if (typeof status !== 'undefined') {
+      await pool.execute('UPDATE reviews SET status = ?, updated_at = NOW() WHERE id = ?', [status, id]);
+      // Ghi log cập nhật trạng thái review
+      await logService.logAction({
+        req,
+        userId: req.user.id,
+        role: req.user.role,
+        action: 'Cập nhật trạng thái đánh giá',
+        actionDetail: `ReviewId=${id}, status=${status}`,
+        details: { old: { status: review.status }, new: { status } }
+      });
+      return res.json({ message: 'Cập nhật đánh giá thành công' });
+    }
+    // Cho phép admin/staff chỉnh sửa nội dung nếu cần
+    if (typeof rating !== 'undefined' || typeof comment !== 'undefined') {
+      await pool.execute('UPDATE reviews SET rating = ?, comment = ?, updated_at = NOW() WHERE id = ?', [rating || review.rating, comment || review.comment, id]);
+      // Ghi log chỉnh sửa review
+      await logService.logAction({
+        req,
+        userId: req.user.id,
+        role: req.user.role,
+        action: 'Sửa đánh giá',
+        actionDetail: `ReviewId=${id}`,
+        details: { old: { rating: review.rating, comment: review.comment }, new: { rating, comment } }
+      });
+      return res.json({ message: 'Cập nhật đánh giá thành công' });
+    }
+    return res.status(400).json({ message: 'Thiếu dữ liệu cập nhật' });
+  }
+
+  // Nếu là user, chỉ cho phép chỉnh sửa 1 lần
+  if (review.user_id !== userId) return res.status(403).json({ message: 'Bạn không có quyền chỉnh sửa đánh giá này' });
+  if (review.edit_once) return res.status(400).json({ message: 'Bạn chỉ được chỉnh sửa đánh giá 1 lần' });
+
+  // Chỉ cho phép chỉnh sửa rating/comment
+  if (typeof rating === 'undefined' && typeof comment === 'undefined') {
+    return res.status(400).json({ message: 'Thiếu dữ liệu chỉnh sửa' });
+  }
+
+  await pool.execute('UPDATE reviews SET rating = ?, comment = ?, edit_once = 1, updated_at = NOW() WHERE id = ?', [rating || review.rating, comment || review.comment, id]);
+  // Ghi log chỉnh sửa review (user)
+  await logService.logAction({
+    req,
+    userId,
+    role: req.user.role,
+    action: 'Sửa đánh giá',
+    actionDetail: `ReviewId=${id}`,
+    details: { old: { rating: review.rating, comment: review.comment }, new: { rating, comment } }
+  });
+  res.json({ message: 'Chỉnh sửa đánh giá thành công' });
 };
 
 exports.deleteReview = async (req, res) => {
   await pool.execute('DELETE FROM reviews WHERE id = ?', [req.params.id]);
+  // Ghi log xóa review (admin/staff)
+  await logService.logAction({
+    req,
+    userId: req.user.id,
+    role: req.user.role,
+    action: 'Xóa đánh giá',
+    actionDetail: `ReviewId=${req.params.id}`,
+    details: { reviewId: req.params.id }
+  });
   res.json({ message: 'Xóa đánh giá thành công' });
 };

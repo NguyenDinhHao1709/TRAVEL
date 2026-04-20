@@ -127,6 +127,17 @@ exports.register = async (req, res) => {
     [session.fullName, session.email, session.passwordHash, 'user']
   );
 
+  // Log system_logs
+  const logService = require('../services/log.service');
+  await logService.logAction({
+    req,
+    userId: result.insertId,
+    role: 'user',
+    action: 'Đăng ký tài khoản',
+    actionDetail: `User đăng ký tài khoản mới: ${session.fullName} (${session.email})`,
+    details: { userId: result.insertId, email: session.email, fullName: session.fullName }
+  });
+
   const tokenPayload = { id: result.insertId, email: session.email, role: 'user' };
   const token = jwtUtil.sign(tokenPayload);
   const refreshToken = jwtUtil.signRefresh(tokenPayload);

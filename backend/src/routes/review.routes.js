@@ -23,7 +23,8 @@ router.get('/:id', reviewController.getReviewById);
 // User
 router.post('/', authenticate, reviewController.createReview);
 // Admin & Staff
-router.put('/:id', authenticate, authenticate.requireRole('admin', 'staff'), reviewController.updateReview);
+// Cho phép user tự chỉnh sửa review của mình 1 lần duy nhất
+router.put('/:id', authenticate, reviewController.updateReview);
 router.delete('/:id', authenticate, authenticate.requireRole('admin', 'staff'), reviewController.deleteReview);
 
 module.exports = router;

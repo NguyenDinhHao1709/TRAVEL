@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Card, Row, Col, Table, Form, Button, Alert, Badge, Nav, Tab } from 'react-bootstrap';
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import client from '../../api/client';
+import TourManagementPage from './TourManagementPage';
+import AdminArticlesPage from './AdminArticlesPage';
 
 const formatDateTimeVN = (value) => {
   if (!value) return '';
@@ -131,9 +133,9 @@ const AdminDashboardPage = () => {
     setReviewTotalPages(data.totalPages);
   };
 
-  // Load logs
+  // Load logs (system logs)
   const loadLogs = async (page = logPage, filter = logFilter) => {
-    const { data } = await client.get('/admin/logs', {
+    const { data } = await client.get('/admin/system-logs', {
       params: { page, limit: 10, ...filter }
     });
     setLogs(data.data);
@@ -298,7 +300,7 @@ const AdminDashboardPage = () => {
 
   return (
     <>
-      <h3 className="mb-3">Bảng điều khiển quản trị</h3>
+      <h3 className="mb-3">Quản trị</h3>
       <Tab.Container defaultActiveKey="overview">
         <Nav variant="tabs" className="mb-3 app-scroll-tabs">
           <Nav.Item>
@@ -325,13 +327,10 @@ const AdminDashboardPage = () => {
             <Nav.Link eventKey="logs">Nhật ký</Nav.Link>
           </Nav.Item>
           <Nav.Item>
-            <Nav.Link onClick={() => navigate('/admin/tours')} style={{ cursor: 'pointer' }}>Quản lý Tour</Nav.Link>
+            <Nav.Link eventKey="tours">Quản lý Tour</Nav.Link>
           </Nav.Item>
           <Nav.Item>
-            <Nav.Link onClick={() => navigate('/admin/articles')} style={{ cursor: 'pointer' }}>Quản lý Bài viết</Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link onClick={() => navigate('/staff#chat')} style={{ cursor: 'pointer' }}>Chat hỗ trợ</Nav.Link>
+            <Nav.Link eventKey="articles">Quản lý Bài viết</Nav.Link>
           </Nav.Item>
         </Nav>
 
@@ -961,6 +960,13 @@ const AdminDashboardPage = () => {
                 </div>
               </Card.Body>
             </Card>
+          </Tab.Pane>
+
+          <Tab.Pane eventKey="tours" mountOnEnter unmountOnExit>
+            <TourManagementPage />
+          </Tab.Pane>
+          <Tab.Pane eventKey="articles" mountOnEnter unmountOnExit>
+            <AdminArticlesPage />
           </Tab.Pane>
         </Tab.Content>
       </Tab.Container>

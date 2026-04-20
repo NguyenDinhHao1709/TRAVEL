@@ -31,7 +31,7 @@ const AdminArticlesPage = () => {
   };
 
   const loadTours = async () => {
-    const { data } = await client.get('/tours');
+    const { data } = await client.get('/tours', { params: { all: true } });
     setTours(data);
   };
 

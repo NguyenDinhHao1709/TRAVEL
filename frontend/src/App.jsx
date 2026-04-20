@@ -1,3 +1,4 @@
+import AdminSystemLogsPage from './pages/admin/AdminSystemLogsPage';
 import { Container } from 'react-bootstrap';
 import { Routes, Route } from 'react-router-dom';
 import { useState, useEffect } from 'react';
@@ -108,6 +109,14 @@ const App = () => {
             element={
               <ProtectedRoute roles={['admin', 'staff']}>
                 <AdminArticlesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/system-logs"
+            element={
+              <ProtectedRoute roles={['admin']}>
+                <AdminSystemLogsPage />
               </ProtectedRoute>
             }
           />

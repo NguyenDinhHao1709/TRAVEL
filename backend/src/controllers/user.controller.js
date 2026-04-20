@@ -46,6 +46,17 @@ exports.createUser = async (req, res) => {
     [String(fullName).trim(), email.toLowerCase().trim(), hash, role || 'user']
   );
   res.status(201).json({ id: result.insertId, message: 'Tạo người dùng thành công' });
+
+  // Log system_logs
+  const logService = require('../services/log.service');
+  await logService.logAction({
+    req,
+    userId: req.user?.id || null,
+    role: req.user?.role || 'system',
+    action: 'Tạo người dùng',
+    actionDetail: `Tạo người dùng mới: ${fullName} (${email}), role: ${role || 'user'}`,
+    details: { userId: result.insertId, fullName, email, role: role || 'user' }
+  });
 };
 
 exports.updateUser = async (req, res) => {
@@ -62,9 +73,31 @@ exports.updateUser = async (req, res) => {
     [fullName || null, phone || null, id]
   );
   res.json({ message: 'Cập nhật thông tin thành công' });
+
+  // Log system_logs
+  const logService = require('../services/log.service');
+  await logService.logAction({
+    req,
+    userId: req.user?.id || null,
+    role: req.user?.role || 'system',
+    action: 'Cập nhật người dùng',
+    actionDetail: `Cập nhật thông tin user ID: ${id}`,
+    details: { userId: id, ...req.body }
+  });
 };
 
 exports.deleteUser = async (req, res) => {
   await pool.execute('DELETE FROM users WHERE id = ?', [req.params.id]);
   res.json({ message: 'Xóa người dùng thành công' });
+
+  // Log system_logs
+  const logService = require('../services/log.service');
+  await logService.logAction({
+    req,
+    userId: req.user?.id || null,
+    role: req.user?.role || 'system',
+    action: 'Xóa người dùng',
+    actionDetail: `Xóa user ID: ${req.params.id}`,
+    details: { userId: req.params.id }
+  });
 };

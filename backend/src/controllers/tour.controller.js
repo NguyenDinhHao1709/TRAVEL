@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const logService = require('../services/log.service');
 
 function safeParseJson(value, defaultVal = []) {
   if (Array.isArray(value)) return value;
@@ -14,7 +15,7 @@ function formatTour(t) {
 }
 
 exports.getAllTours = async (req, res) => {
-  const { title, destination, minPrice, maxPrice, category, status, transport } = req.query;
+  const { title, destination, minPrice, maxPrice, category, status, transport, all } = req.query;
   let query = 'SELECT * FROM tours WHERE 1=1';
   const params = [];
 
@@ -23,7 +24,13 @@ exports.getAllTours = async (req, res) => {
   if (minPrice) { query += ' AND price >= ?'; params.push(Number(minPrice)); }
   if (maxPrice) { query += ' AND price <= ?'; params.push(Number(maxPrice)); }
   if (category) { query += ' AND category = ?'; params.push(category); }
-  if (status) { query += ' AND status = ?'; params.push(status); }
+  if (typeof status !== 'undefined' && status !== null && status !== '') {
+    query += ' AND status = ?';
+    params.push(status);
+  } else if (!all || all === 'false') {
+    // Nếu không phải all=true thì chỉ trả về tour đang mở bán (open) hoặc sắp hết chỗ (almost_full) cho khách hàng
+    query += " AND (status = 'open' OR status = 'almost_full')";
+  }
   if (transport) { query += ' AND transport = ?'; params.push(transport); }
 
   query += ' ORDER BY created_at DESC';
@@ -79,9 +86,15 @@ exports.createTour = async (req, res) => {
 
   res.status(201).json({ id: result.insertId, message: 'Tạo tour thành công' });
 
-  // Log
-  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
-    [req.user.id, req.user.role, 'Tạo tour', `Tạo tour "${title}" (ID: ${result.insertId})`]).catch(() => {});
+  // Log system_logs
+  await logService.logAction({
+    req,
+    userId: req.user.id,
+    role: req.user.role,
+    action: 'Tạo tour',
+    actionDetail: `Tạo tour "${title}" (ID: ${result.insertId})`,
+    details: { tourId: result.insertId, title, destination, price, slots }
+  });
 };
 
 exports.updateTour = async (req, res) => {
@@ -121,9 +134,15 @@ exports.updateTour = async (req, res) => {
   await pool.execute(`UPDATE tours SET ${fields.join(', ')} WHERE id = ?`, params);
   res.json({ message: 'Cập nhật tour thành công' });
 
-  // Log
-  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
-    [req.user.id, req.user.role, 'Sửa tour', `Cập nhật tour ID: ${id}`]).catch(() => {});
+  // Log system_logs
+  await logService.logAction({
+    req,
+    userId: req.user.id,
+    role: req.user.role,
+    action: 'Sửa tour',
+    actionDetail: `Cập nhật tour ID: ${id}`,
+    details: { tourId: id, ...req.body }
+  });
 };
 
 exports.deleteTour = async (req, res) => {
@@ -133,7 +152,13 @@ exports.deleteTour = async (req, res) => {
   await pool.execute('DELETE FROM tours WHERE id = ?', [id]);
   res.json({ message: 'Xóa tour thành công' });
 
-  // Log
-  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
-    [req.user.id, req.user.role, 'Xóa tour', `Xóa tour ID: ${id}`]).catch(() => {});
+  // Log system_logs
+  await logService.logAction({
+    req,
+    userId: req.user.id,
+    role: req.user.role,
+    action: 'Xóa tour',
+    actionDetail: `Xóa tour ID: ${id}`,
+    details: { tourId: id }
+  });
 };
