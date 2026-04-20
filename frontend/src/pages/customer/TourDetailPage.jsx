@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Card, Row, Col, Button, Form, Alert, ListGroup } from 'react-bootstrap';
+import { Card, Row, Col, Button, Form, Alert, ListGroup, Badge } from 'react-bootstrap';
 import client from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import MapComponent from '../../components/MapComponent';
@@ -16,6 +16,37 @@ const getTourImages = (tour) => {
   }
 
   return tour.image_url ? [tour.image_url] : [];
+};
+
+const CATEGORY_LABELS = {
+  'bien-dao': 'Tour Biển đảo',
+  'mien-bac': 'Tour Miền Bắc',
+  'mien-trung': 'Tour Miền Trung',
+  'mien-nam': 'Tour Miền Nam',
+  'nuoc-ngoai': 'Tour Nước ngoài',
+  'trekking': 'Tour Trekking',
+  'tam-linh': 'Tour Tâm linh'
+};
+
+const STATUS_LABELS = {
+  'open': 'Đang mở bán',
+  'almost-full': 'Sắp hết chỗ',
+  'closed': 'Đã đóng',
+  'draft': 'Bản nháp'
+};
+
+const STATUS_VARIANTS = {
+  'open': 'success',
+  'almost-full': 'warning',
+  'closed': 'danger',
+  'draft': 'secondary'
+};
+
+const TRANSPORT_LABELS = {
+  'may-bay': 'Máy bay',
+  'oto-giuong-nam': 'Ô tô giường nằm',
+  'tau-hoa': 'Tàu hỏa',
+  'oto-du-lich': 'Ô tô du lịch'
 };
 
 const TourDetailPage = () => {
@@ -326,7 +357,15 @@ const TourDetailPage = () => {
               </div>
             )}
             <h3>{tour.title}</h3>
+            {tour.status && (
+              <Badge bg={STATUS_VARIANTS[tour.status] || 'secondary'} className="mb-2">
+                {STATUS_LABELS[tour.status] || tour.status}
+              </Badge>
+            )}
             <p><strong>Điểm đến:</strong> {tour.destination}</p>
+            {tour.departure_point && <p><strong>Điểm khởi hành:</strong> {tour.departure_point}</p>}
+            {tour.category && <p><strong>Danh mục:</strong> {CATEGORY_LABELS[tour.category] || tour.category}</p>}
+            {tour.transport && <p><strong>Phương tiện:</strong> {TRANSPORT_LABELS[tour.transport] || tour.transport}</p>}
             <p><strong>Lịch trình:</strong> {tour.itinerary}</p>
             <p><strong>Giá:</strong> {Number(tour.price).toLocaleString()} VND</p>
             <p><strong>Chỗ còn:</strong> {tour.slots}</p>

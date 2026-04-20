@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Row } from 'react-bootstrap';
+import { Alert, Button, Card, Col, Container, Form, Row } from 'react-bootstrap';
 import client from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -11,12 +11,22 @@ const VN_MOBILE_PREFIXES = [
   '090', '091', '092', '093', '094', '096', '097', '098', '099'
 ];
 
+const INFO_TYPES = [
+  { value: 'ho-tro-dat-tour', label: 'Hỗ trợ đặt tour' },
+  { value: 'phan-anh-dich-vu', label: 'Phản ánh dịch vụ' },
+  { value: 'thiet-ke-tour-rieng', label: 'Yêu cầu thiết kế tour riêng' },
+  { value: 'hop-tac-doanh-nghiep', label: 'Hợp tác doanh nghiệp' },
+  { value: 'khac', label: 'Khác' },
+];
+
 const hcmBranch = {
   name: 'TRỤ SỞ TP. HỒ CHÍ MINH',
   address: '12 Nguyễn Văn Bảo, Phường Hạnh Thông, TP.HCM',
   hotline: '0354162165',
   email: 'hk2travel@gmail.com'
 };
+
+const MAPS_EMBED = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3918.858237983!2d106.6826!3d10.8221!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x317528e1e7e1c9b1%3A0x1e4d4a0e0e0e0e0e!2zMTIgTmd1eeG7hW4gVsSDbiBCw6Nv!5e0!3m2!1svi!2svn!4v1700000000000!5m2!1svi!2svn';
 
 const isValidGmail = (value) => /^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(value.trim());
 
@@ -27,7 +37,7 @@ const isValidVietnamPhone = (value) => {
 };
 
 const buildInitialForm = (user = null) => ({
-  infoType: 'Du lịch',
+  infoType: 'ho-tro-dat-tour',
   fullName: user?.fullName || '',
   email: user?.email || '',
   phone: '',
@@ -55,6 +65,8 @@ const ContactPage = () => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
+  const showGuestCount = form.infoType === 'thiet-ke-tour-rieng';
+
   const emailError = form.email && !isValidGmail(form.email) ? 'Email không hợp lệ' : '';
   const phoneError = form.phone && !isValidVietnamPhone(form.phone) ? 'Số điện thoại không hợp lệ' : '';
 
@@ -63,28 +75,24 @@ const ContactPage = () => {
     setValidated(true);
     setTouched({ email: true, phone: true });
 
-    if (!event.currentTarget.checkValidity()) {
-      return;
-    }
-
-    if (emailError || phoneError) {
-      return;
-    }
+    if (!event.currentTarget.checkValidity()) return;
+    if (emailError || phoneError) return;
 
     setSending(true);
     setFeedback({ type: '', text: '' });
 
     try {
+      const infoLabel = INFO_TYPES.find((t) => t.value === form.infoType)?.label || form.infoType;
       const payload = {
-        infoType: form.infoType,
+        infoType: infoLabel,
         fullName: form.fullName,
         email: form.email.trim().toLowerCase(),
         phone: form.phone.replace(/\D/g, ''),
-        guestCount: Number(form.guestCount || 0),
+        guestCount: showGuestCount ? Number(form.guestCount || 0) : 0,
         message: form.message
       };
       const { data } = await client.post('/contact', payload);
-      setFeedback({ type: 'success', text: data.message || 'Gửi liên hệ thành công.' });
+      setFeedback({ type: 'success', text: data.message || 'Gửi liên hệ thành công!' });
       setValidated(false);
       setTouched({ email: false, phone: false });
       setForm(buildInitialForm(user));
@@ -100,130 +108,175 @@ const ContactPage = () => {
 
   return (
     <div className="contact-page">
-      <Card className="contact-card border-0">
-        <Card.Body>
-          <h2 className="contact-title text-center">LIÊN HỆ</h2>
-          <p className="contact-subtitle mb-4">
-            Để có thể đáp ứng được các yêu cầu và đóng góp ý kiến của quý khách, xin vui lòng gửi thông tin
-            hoặc gọi đến hotline các chi nhánh bên dưới để liên hệ một cách nhanh chóng.
-          </p>
+      {/* ===== HERO BANNER ===== */}
+      <div className="contact-hero">
+        <div className="contact-hero-overlay" />
+        <div className="contact-hero-content">
+          <h1>KẾT NỐI VỚI CHÚNG TÔI</h1>
+          <p>Chúng tôi luôn sẵn sàng lắng nghe và hỗ trợ bạn trên mọi hành trình</p>
+        </div>
+      </div>
 
-          {feedback.text && (
-            <Alert variant={feedback.type} className="mb-4">
-              {feedback.text}
-            </Alert>
-          )}
+      <Container className="py-5">
+        {feedback.text && (
+          <Alert variant={feedback.type} className="mb-4" dismissible onClose={() => setFeedback({ type: '', text: '' })}>
+            {feedback.text}
+          </Alert>
+        )}
 
-          <Row className="g-4">
-            <Col lg={7}>
-              <h4 className="contact-section-title">THÔNG TIN LIÊN LẠC</h4>
-              <Form noValidate validated={validated} onSubmit={handleSubmit} className="contact-form-grid">
-                <Row className="g-3">
-                  <Col md={4}>
-                    <Form.Group>
-                      <Form.Label>Loại thông tin *</Form.Label>
-                      <Form.Select value={form.infoType} onChange={(e) => setField('infoType', e.target.value)}>
-                        <option value="Du lịch">Du lịch</option>
-                        <option value="Hợp tác">Hợp tác</option>
-                        <option value="Khiếu nại">Khiếu nại</option>
-                        <option value="Khác">Khác</option>
-                      </Form.Select>
-                    </Form.Group>
-                  </Col>
-                  <Col md={4}>
-                    <Form.Group>
-                      <Form.Label>Họ tên *</Form.Label>
-                      <Form.Control
-                        value={form.fullName}
-                        onChange={(e) => setField('fullName', e.target.value)}
-                        placeholder="Liên hệ"
-                        required
-                      />
-                    </Form.Group>
-                  </Col>
-                  <Col md={4}>
-                    <Form.Group>
-                      <Form.Label>Email *</Form.Label>
-                      <Form.Control
-                        type="email"
-                        value={form.email}
-                        onChange={(e) => setField('email', e.target.value)}
-                        onBlur={() => setTouched((current) => ({ ...current, email: true }))}
-                        placeholder="Nhập email"
-                        isInvalid={(validated || touched.email) && !!emailError}
-                        required
-                      />
-                      <Form.Control.Feedback type="invalid">{emailError}</Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
+        <Row className="g-4">
+          {/* ===== FORM ===== */}
+          <Col lg={7}>
+            <Card className="contact-form-card border-0">
+              <Card.Body className="p-4">
+                <h4 className="contact-section-title mb-1">📬 Gửi thông tin liên hệ</h4>
+                <p className="text-muted mb-4" style={{ fontSize: '0.88rem' }}>
+                  Hãy điền thông tin bên dưới, chúng tôi sẽ phản hồi trong thời gian sớm nhất.
+                </p>
 
-                  <Col md={4}>
-                    <Form.Group>
-                      <Form.Label>Điện thoại *</Form.Label>
-                      <Form.Control
-                        value={form.phone}
-                        onChange={(e) => setField('phone', e.target.value)}
-                        onBlur={() => setTouched((current) => ({ ...current, phone: true }))}
-                        placeholder="Nhập số điện thoại"
-                        isInvalid={(validated || touched.phone) && !!phoneError}
-                        required
-                      />
-                      <Form.Control.Feedback type="invalid">{phoneError}</Form.Control.Feedback>
-                    </Form.Group>
-                  </Col>
-                  <Col md={4}>
-                    <Form.Group>
-                      <Form.Label>Số khách</Form.Label>
-                      <Form.Control
-                        type="number"
-                        min={0}
-                        value={form.guestCount}
-                        onChange={(e) => setField('guestCount', e.target.value)}
-                      />
-                    </Form.Group>
-                  </Col>
+                <Form noValidate validated={validated} onSubmit={handleSubmit}>
+                  <Row className="g-3">
+                    {/* Row 1: Loại thông tin + Họ tên */}
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Loại thông tin <span className="text-danger">*</span></Form.Label>
+                        <Form.Select value={form.infoType} onChange={(e) => setField('infoType', e.target.value)}>
+                          {INFO_TYPES.map((t) => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </Form.Select>
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Họ tên <span className="text-danger">*</span></Form.Label>
+                        <Form.Control
+                          value={form.fullName}
+                          onChange={(e) => setField('fullName', e.target.value)}
+                          placeholder="Nhập họ và tên"
+                          required
+                        />
+                      </Form.Group>
+                    </Col>
 
-                  <Col xs={12}>
-                    <Form.Group>
-                      <Form.Label>Nội dung *</Form.Label>
-                      <Form.Control
-                        as="textarea"
-                        rows={5}
-                        value={form.message}
-                        onChange={(e) => setField('message', e.target.value)}
-                        placeholder="Nhập nội dung"
-                        required
-                      />
-                    </Form.Group>
-                  </Col>
+                    {/* Row 2: Email + Điện thoại */}
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Email <span className="text-danger">*</span></Form.Label>
+                        <Form.Control
+                          type="email"
+                          value={form.email}
+                          onChange={(e) => setField('email', e.target.value)}
+                          onBlur={() => setTouched((c) => ({ ...c, email: true }))}
+                          placeholder="Nhập email"
+                          isInvalid={(validated || touched.email) && !!emailError}
+                          required
+                        />
+                        <Form.Control.Feedback type="invalid">{emailError}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group>
+                        <Form.Label>Điện thoại <span className="text-danger">*</span></Form.Label>
+                        <Form.Control
+                          value={form.phone}
+                          onChange={(e) => setField('phone', e.target.value)}
+                          onBlur={() => setTouched((c) => ({ ...c, phone: true }))}
+                          placeholder="Nhập số điện thoại"
+                          isInvalid={(validated || touched.phone) && !!phoneError}
+                          required
+                        />
+                        <Form.Control.Feedback type="invalid">{phoneError}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
 
-                  <Col xs={12} className="d-flex justify-content-end">
-                    <Button type="submit" disabled={sending}>
-                      {sending ? 'Đang gửi...' : 'Gửi thông tin'}
-                    </Button>
-                  </Col>
-                </Row>
-              </Form>
-            </Col>
+                    {/* Số khách - chỉ hiện khi chọn "Thiết kế tour riêng" */}
+                    {showGuestCount && (
+                      <Col md={6}>
+                        <Form.Group>
+                          <Form.Label>Số khách dự kiến</Form.Label>
+                          <Form.Control
+                            type="number"
+                            min={1}
+                            value={form.guestCount}
+                            onChange={(e) => setField('guestCount', e.target.value)}
+                            placeholder="Nhập số khách"
+                          />
+                        </Form.Group>
+                      </Col>
+                    )}
 
-            <Col lg={5}>
-              <h4 className="contact-section-title">TRỤ SỞ</h4>
-              <Card className="contact-branch-card">
-                <Card.Body>
-                  <div className="contact-branch-list mt-3">
-                    <div className="contact-branch-item">
-                      <h5>{hcmBranch.name}</h5>
-                      <p>📍 {hcmBranch.address}</p>
-                      <p>📞 Hotline: {hcmBranch.hotline}</p>
-                      <p>✉️ Email: {hcmBranch.email}</p>
-                    </div>
+                    {/* Nội dung */}
+                    <Col xs={12}>
+                      <Form.Group>
+                        <Form.Label>Nội dung <span className="text-danger">*</span></Form.Label>
+                        <Form.Control
+                          as="textarea"
+                          rows={5}
+                          value={form.message}
+                          onChange={(e) => setField('message', e.target.value)}
+                          placeholder="Mô tả chi tiết yêu cầu của bạn..."
+                          required
+                        />
+                      </Form.Group>
+                    </Col>
+
+                    <Col xs={12} className="d-flex justify-content-end">
+                      <Button type="submit" disabled={sending} size="lg" className="contact-submit-btn rounded-pill px-5">
+                        {sending ? '⏳ Đang gửi...' : '📨 Gửi thông tin'}
+                      </Button>
+                    </Col>
+                  </Row>
+                </Form>
+              </Card.Body>
+            </Card>
+          </Col>
+
+          {/* ===== RIGHT COLUMN: INFO + MAP ===== */}
+          <Col lg={5}>
+            {/* Branch info card */}
+            <Card className="contact-branch-card border-0 mb-3">
+              <Card.Body className="p-4">
+                <h4 className="contact-section-title mb-3">🏢 {hcmBranch.name}</h4>
+                <div className="contact-info-list">
+                  <div className="contact-info-item">
+                    <span className="contact-info-icon">📍</span>
+                    <span>{hcmBranch.address}</span>
                   </div>
-                </Card.Body>
-              </Card>
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
+                  <div className="contact-info-item">
+                    <span className="contact-info-icon">📞</span>
+                    <span>Hotline: <strong>{hcmBranch.hotline}</strong></span>
+                  </div>
+                  <div className="contact-info-item">
+                    <span className="contact-info-icon">✉️</span>
+                    <span>Email: <strong>{hcmBranch.email}</strong></span>
+                  </div>
+                  <div className="contact-info-item">
+                    <span className="contact-info-icon">🕐</span>
+                    <span>Thứ 2 – Thứ 7: 8:00 – 17:30</span>
+                  </div>
+                </div>
+              </Card.Body>
+            </Card>
+
+            {/* Google Maps embed */}
+            <Card className="contact-map-card border-0">
+              <Card.Body className="p-0">
+                <iframe
+                  title="HK2 Travel Office"
+                  src={MAPS_EMBED}
+                  width="100%"
+                  height="300"
+                  style={{ border: 0, borderRadius: '12px' }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </Container>
     </div>
   );
 };

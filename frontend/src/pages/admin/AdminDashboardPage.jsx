@@ -845,10 +845,11 @@ const AdminDashboardPage = () => {
                   <thead>
                     <tr>
                       <th>ID</th>
+                      <th>Loại thông tin</th>
                       <th>Người gửi</th>
                       <th>Liên hệ</th>
-                      <th>Tiêu đề</th>
                       <th>Nội dung</th>
+                      <th>Số khách</th>
                       <th>Thời gian</th>
                       <th>Trạng thái</th>
                     </tr>
@@ -857,13 +858,14 @@ const AdminDashboardPage = () => {
                     {contactInbox.items.map((item) => (
                       <tr key={item.id}>
                         <td>{item.id}</td>
+                        <td><span className="badge bg-info text-dark">{item.info_type || '—'}</span></td>
                         <td>{item.full_name}</td>
                         <td>
-                          <div>{item.email}</div>
-                          <div>{item.phone}</div>
+                          <div>📧 {item.email}</div>
+                          {item.phone && <div>📞 {item.phone}</div>}
                         </td>
-                        <td>{item.subject}</td>
                         <td style={{ maxWidth: 360 }}>{item.message}</td>
+                        <td className="text-center">{item.guest_count > 0 ? item.guest_count : '—'}</td>
                         <td>{formatDateTimeVN(item.created_at)}</td>
                         <td>
                           {Number(item.is_read) === 1 ? (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Card, Table, Button, Alert, Badge, Nav, Tab, Form } from 'react-bootstrap';
+import { Card, Table, Button, Alert, Badge, Nav, Tab, Form, Row, Col, Modal } from 'react-bootstrap';
 import { io } from 'socket.io-client';
 import * as XLSX from 'xlsx';
 import client from '../../api/client';
@@ -39,6 +39,10 @@ const StaffDashboardPage = () => {
   const [reviews, setReviews] = useState([]);
   const [reviewReplies, setReviewReplies] = useState({});
   const [replySubmittingId, setReplySubmittingId] = useState(null);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewTotalPages, setReviewTotalPages] = useState(1);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [reviewFilter, setReviewFilter] = useState({ search: '', status: '', rating: '' });
   const [message, setMessage] = useState('');
 
   const [rooms, setRooms] = useState([]);
@@ -64,22 +68,33 @@ const StaffDashboardPage = () => {
   };
 
   const load = async () => {
-    const [bookingRes, customerRes, contactRes, reviewRes] = await Promise.all([
+    const [bookingRes, customerRes, contactRes] = await Promise.all([
       client.get('/bookings/staff/all'),
       client.get('/staff/customers'),
-      client.get('/contact/messages'),
-      client.get('/reviews/staff/all')
+      client.get('/contact/messages')
     ]);
 
     setBookings(bookingRes.data);
     setCustomers(customerRes.data);
     setContactInbox(contactRes.data);
-    setReviews(reviewRes.data || []);
+  };
+
+  const loadReviews = async (page = reviewPage, filter = reviewFilter) => {
+    const { data } = await client.get('/reviews/admin/all', {
+      params: { page, limit: 10, ...filter }
+    });
+    setReviews(data.data);
+    setReviewTotal(data.total);
+    setReviewPage(data.page);
+    setReviewTotalPages(data.totalPages);
   };
 
   useEffect(() => {
     load();
+    loadReviews(1, reviewFilter);
   }, []);
+
+  useEffect(() => { loadReviews(reviewPage, reviewFilter); }, [reviewPage]);
 
   // Socket.io setup for staff chat
   useEffect(() => {
@@ -537,33 +552,108 @@ const StaffDashboardPage = () => {
           <Tab.Pane eventKey="reviews">
             <Card>
               <Card.Body>
+                <h5 className="mb-3">Quản lý đánh giá</h5>
+
+                {/* Filter */}
+                <Form className="mb-3">
+                  <Row className="g-2">
+                    <Col md={4}>
+                      <Form.Control
+                        placeholder="Tìm theo bình luận hoặc tên người dùng"
+                        value={reviewFilter.search}
+                        onChange={(e) => setReviewFilter({ ...reviewFilter, search: e.target.value })}
+                      />
+                    </Col>
+                    <Col md={3}>
+                      <Form.Select
+                        value={reviewFilter.status}
+                        onChange={(e) => setReviewFilter({ ...reviewFilter, status: e.target.value })}
+                      >
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="approved">Đã duyệt</option>
+                        <option value="pending">Chờ duyệt</option>
+                        <option value="rejected">Đã từ chối</option>
+                      </Form.Select>
+                    </Col>
+                    <Col md={2}>
+                      <Form.Select
+                        value={reviewFilter.rating}
+                        onChange={(e) => setReviewFilter({ ...reviewFilter, rating: e.target.value })}
+                      >
+                        <option value="">Tất cả sao</option>
+                        {[5, 4, 3, 2, 1].map(s => <option key={s} value={s}>{s} sao</option>)}
+                      </Form.Select>
+                    </Col>
+                    <Col md={2}>
+                      <Button onClick={() => loadReviews(1, reviewFilter)}>Lọc</Button>
+                    </Col>
+                  </Row>
+                </Form>
+
                 <Table striped bordered hover responsive>
                   <thead>
                     <tr>
                       <th>ID</th>
-                      <th>Khách hàng</th>
+                      <th>Người dùng</th>
                       <th>Tour</th>
                       <th>Sao</th>
                       <th>Bình luận</th>
+                      <th>Phản hồi</th>
+                      <th>Trạng thái</th>
+                      <th>Thời gian</th>
+                      <th>Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
+                    {reviews.length === 0 && (
+                      <tr><td colSpan={9} className="text-center">Không có dữ liệu</td></tr>
+                    )}
                     {reviews.map((review) => (
                       <tr key={review.id}>
                         <td>{review.id}</td>
                         <td>{review.user_name || '-'}</td>
                         <td>{review.tour_title || '-'}</td>
                         <td style={{ color: '#f59e0b', fontWeight: 700 }}>{renderStars(review.rating)}</td>
-                        <td style={{ maxWidth: 320 }}>{review.comment || '-'}</td>
+                        <td style={{ maxWidth: 200 }}>{review.comment || '-'}</td>
+                        <td style={{ maxWidth: 200 }}>{review.staff_reply || '-'}</td>
+                        <td>
+                          <Badge bg={review.status === 'approved' ? 'success' : review.status === 'rejected' ? 'danger' : 'warning'}>
+                            {review.status === 'approved' ? 'Đã duyệt' : review.status === 'rejected' ? 'Từ chối' : 'Chờ duyệt'}
+                          </Badge>
+                        </td>
+                        <td>{formatDateTimeVN(review.created_at)}</td>
+                        <td>
+                          <div className="d-flex gap-1 flex-wrap">
+                            {review.status === 'approved' ? (
+                              <Button size="sm" variant="secondary" onClick={async () => {
+                                await client.put(`/reviews/${review.id}`, { status: 'rejected' });
+                                loadReviews(reviewPage, reviewFilter);
+                              }}>Ẩn</Button>
+                            ) : (
+                              <Button size="sm" variant="success" onClick={async () => {
+                                await client.put(`/reviews/${review.id}`, { status: 'approved' });
+                                loadReviews(reviewPage, reviewFilter);
+                              }}>Hiện</Button>
+                            )}
+                            <Button size="sm" variant="outline-danger" onClick={async () => {
+                              if (!window.confirm('Xóa đánh giá này?')) return;
+                              await client.delete(`/reviews/${review.id}`);
+                              loadReviews(reviewPage, reviewFilter);
+                            }}>Xóa</Button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
-                    {reviews.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="text-center">Chưa có đánh giá nào</td>
-                      </tr>
-                    )}
                   </tbody>
                 </Table>
+
+                <div className="d-flex justify-content-between align-items-center mt-2">
+                  <div>Tổng: {reviewTotal} | Trang {reviewPage}/{reviewTotalPages}</div>
+                  <div>
+                    <Button size="sm" disabled={reviewPage === 1} onClick={() => setReviewPage(p => Math.max(1, p - 1))}>Trước</Button>{' '}
+                    <Button size="sm" disabled={reviewPage === reviewTotalPages} onClick={() => setReviewPage(p => Math.min(reviewTotalPages, p + 1))}>Sau</Button>
+                  </div>
+                </div>
               </Card.Body>
             </Card>
           </Tab.Pane>
@@ -576,10 +666,10 @@ const StaffDashboardPage = () => {
                     <tr>
                       <th>ID</th>
                       <th>Loại thông tin</th>
-                      <th>Họ tên</th>
+                      <th>Người gửi</th>
                       <th>Liên hệ</th>
-                      <th>Tiêu đề</th>
                       <th>Nội dung</th>
+                      <th>Số khách</th>
                       <th>Thời gian</th>
                       <th>Trạng thái</th>
                     </tr>
@@ -588,14 +678,14 @@ const StaffDashboardPage = () => {
                     {contactInbox.items.map((item) => (
                       <tr key={item.id}>
                         <td>{item.id}</td>
-                        <td>{item.info_type}</td>
+                        <td><span className="badge bg-info text-dark">{item.info_type || '—'}</span></td>
                         <td>{item.full_name}</td>
                         <td>
-                          <div>{item.email}</div>
-                          <div>{item.phone}</div>
+                          <div>📧 {item.email}</div>
+                          {item.phone && <div>📞 {item.phone}</div>}
                         </td>
-                        <td>{item.subject}</td>
                         <td style={{ maxWidth: 340 }}>{item.message}</td>
+                        <td className="text-center">{item.guest_count > 0 ? item.guest_count : '—'}</td>
                         <td>{formatDateTimeVN(item.created_at)}</td>
                         <td>
                           {Number(item.is_read) === 1 ? (

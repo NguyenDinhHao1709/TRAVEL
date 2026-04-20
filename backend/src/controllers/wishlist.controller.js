@@ -3,7 +3,8 @@ const pool = require('../config/db');
 exports.getMyWishlist = async (req, res) => {
   const userId = req.user.id;
   const [rows] = await pool.execute(`
-    SELECT w.id, w.tour_id, t.title, t.destination, t.price, t.image_url, t.slots
+    SELECT w.id, w.tour_id, t.title, t.destination, t.price, t.image_url, t.slots,
+           t.start_date, t.end_date, t.departure_point, t.transport, t.category
     FROM wishlists w JOIN tours t ON t.id = w.tour_id
     WHERE w.user_id = ?
     ORDER BY w.created_at DESC

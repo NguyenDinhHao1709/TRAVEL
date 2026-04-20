@@ -18,7 +18,7 @@ exports.getMyBookings = async (req, res) => {
   await cancelExpiredBookings(userId);
 
   const [rows] = await pool.execute(`
-    SELECT b.*, t.title, t.start_date, t.end_date, t.destination
+    SELECT b.*, t.title, t.start_date, t.end_date, t.destination, t.image_url
     FROM bookings b
     LEFT JOIN tours t ON t.id = b.tour_id
     WHERE b.user_id = ?

@@ -14,7 +14,7 @@ function formatTour(t) {
 }
 
 exports.getAllTours = async (req, res) => {
-  const { title, destination, minPrice, maxPrice } = req.query;
+  const { title, destination, minPrice, maxPrice, category, status, transport } = req.query;
   let query = 'SELECT * FROM tours WHERE 1=1';
   const params = [];
 
@@ -22,6 +22,9 @@ exports.getAllTours = async (req, res) => {
   if (destination) { query += ' AND destination LIKE ?'; params.push(`%${destination}%`); }
   if (minPrice) { query += ' AND price >= ?'; params.push(Number(minPrice)); }
   if (maxPrice) { query += ' AND price <= ?'; params.push(Number(maxPrice)); }
+  if (category) { query += ' AND category = ?'; params.push(category); }
+  if (status) { query += ' AND status = ?'; params.push(status); }
+  if (transport) { query += ' AND transport = ?'; params.push(transport); }
 
   query += ' ORDER BY created_at DESC';
   const [rows] = await pool.execute(query, params);
@@ -60,7 +63,7 @@ exports.getTourById = async (req, res) => {
 };
 
 exports.createTour = async (req, res) => {
-  const { title, destination, itinerary, price, startDate, endDate, slots, imageUrls, latitude, longitude } = req.body;
+  const { title, destination, departurePoint, category, status, transport, itinerary, price, startDate, endDate, slots, imageUrls, latitude, longitude } = req.body;
 
   if (!title || !destination || price == null || !slots) {
     return res.status(400).json({ message: 'Vui lòng nhập đầy đủ thông tin' });
@@ -70,8 +73,8 @@ exports.createTour = async (req, res) => {
   const imageUrlsJson = Array.isArray(imageUrls) && imageUrls.length > 0 ? JSON.stringify(imageUrls) : null;
 
   const [result] = await pool.execute(
-    'INSERT INTO tours (title, destination, itinerary, price, start_date, end_date, slots, image_url, image_urls, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [title, destination, itinerary || null, Number(price), startDate || null, endDate || null, Number(slots), imageUrlMain, imageUrlsJson, latitude || null, longitude || null]
+    'INSERT INTO tours (title, destination, departure_point, category, status, transport, itinerary, price, start_date, end_date, slots, image_url, image_urls, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [title, destination, departurePoint || null, category || null, status || 'open', transport || null, itinerary || null, Number(price), startDate || null, endDate || null, Number(slots), imageUrlMain, imageUrlsJson, latitude || null, longitude || null]
   );
 
   res.status(201).json({ id: result.insertId, message: 'Tạo tour thành công' });
@@ -79,7 +82,7 @@ exports.createTour = async (req, res) => {
 
 exports.updateTour = async (req, res) => {
   const { id } = req.params;
-  const { title, destination, itinerary, price, startDate, endDate, slots, imageUrls, latitude, longitude } = req.body;
+  const { title, destination, departurePoint, category, status, transport, itinerary, price, startDate, endDate, slots, imageUrls, latitude, longitude } = req.body;
 
   const [existing] = await pool.execute('SELECT id FROM tours WHERE id = ? LIMIT 1', [id]);
   if (existing.length === 0) return res.status(404).json({ message: 'Không tìm thấy tour' });
@@ -92,6 +95,10 @@ exports.updateTour = async (req, res) => {
   const params = [];
   if (title !== undefined) { fields.push('title = ?'); params.push(title); }
   if (destination !== undefined) { fields.push('destination = ?'); params.push(destination); }
+  if (departurePoint !== undefined) { fields.push('departure_point = ?'); params.push(departurePoint || null); }
+  if (category !== undefined) { fields.push('category = ?'); params.push(category || null); }
+  if (status !== undefined) { fields.push('status = ?'); params.push(status || 'open'); }
+  if (transport !== undefined) { fields.push('transport = ?'); params.push(transport || null); }
   if (itinerary !== undefined) { fields.push('itinerary = ?'); params.push(itinerary || null); }
   if (price !== undefined) { fields.push('price = ?'); params.push(Number(price)); }
   if (startDate !== undefined) { fields.push('start_date = ?'); params.push(startDate || null); }
