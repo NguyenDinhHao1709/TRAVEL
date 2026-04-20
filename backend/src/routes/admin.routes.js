@@ -2,8 +2,8 @@ const express = require('express');
 const adminController = require('../controllers/admin.controller');
 const authenticate = require('../middleware/auth');
 const router = express.Router();
-
 const requireAdmin = [authenticate, authenticate.requireRole('admin')];
+router.get('/system-logs', ...requireAdmin, adminController.getSystemLogs);
 
 router.get('/dashboard', ...requireAdmin, adminController.getDashboardStats);
 router.get('/users', ...requireAdmin, adminController.getUsers);
@@ -16,3 +16,5 @@ router.get('/logs', ...requireAdmin, adminController.getLogs);
 router.get('/bookings-report', ...requireAdmin, adminController.getBookingsReport);
 
 module.exports = router;
+
+

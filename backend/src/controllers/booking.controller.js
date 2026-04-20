@@ -73,6 +73,7 @@ exports.createBooking = async (req, res) => {
   const count = Math.floor(Number(peopleCount));
 
   // Lấy thông tin tour và kiểm tra slot
+
   const [tourRows] = await pool.execute(
     'SELECT id, title, price, slots, start_date FROM tours WHERE id = ? LIMIT 1',
     [tourId]
@@ -80,6 +81,12 @@ exports.createBooking = async (req, res) => {
   if (tourRows.length === 0) return res.status(404).json({ message: 'Không tìm thấy tour' });
 
   const tour = tourRows[0];
+  // Kiểm tra ngày khởi hành
+  const now = new Date();
+  const startDate = tour.start_date ? new Date(tour.start_date) : null;
+  if (startDate && now > startDate) {
+    return res.status(400).json({ message: 'Tour này đã khởi hành, vui lòng chọn ngày khác' });
+  }
   if (tour.slots < count) {
     return res.status(400).json({ message: `Chỉ còn ${tour.slots} chỗ trống` });
   }
@@ -94,6 +101,17 @@ exports.createBooking = async (req, res) => {
   );
 
   res.status(201).json({ id: result.insertId, message: 'Đặt tour thành công' });
+
+  // Log system_logs
+  const logService = require('../services/log.service');
+  await logService.logAction({
+    req,
+    userId: userId,
+    role: req.user.role,
+    action: 'Đặt tour',
+    actionDetail: `User đặt tour ID: ${tourId}, booking ID: ${result.insertId}, số người: ${count}`,
+    details: { bookingId: result.insertId, tourId, peopleCount: count, totalAmount }
+  });
 };
 
 exports.cancelMyBooking = async (req, res) => {

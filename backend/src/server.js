@@ -25,7 +25,7 @@ app.use('/uploads', express.static(require('path').join(__dirname, '../../upload
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: true, // Cho phép mọi origin (dev)
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));

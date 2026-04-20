@@ -1,6 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Navbar, Nav, NavDropdown, Container, Button } from 'react-bootstrap';
+import { Navbar, Nav, NavDropdown, Container, Button, Badge } from 'react-bootstrap';
 import { useAuth } from '../contexts/AuthContext';
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+
+
 
 const AppNavbar = () => {
   const { user, logout } = useAuth();
@@ -19,6 +23,24 @@ const AppNavbar = () => {
 
   const userDisplayName = user ? `${user.fullName} · ${roleLabel[String(user.role)] || String(user.role)}` : '';
 
+  // Badge số log mới cho admin
+  const [logCount, setLogCount] = useState(0);
+  useEffect(() => {
+    let ignore = false;
+    async function fetchLogCount() {
+      if (user?.role === 'admin') {
+        try {
+          // Lấy số log trong 24h qua
+          const since = new Date(Date.now() - 24*60*60*1000).toISOString();
+          const res = await axios.get('/admin/system-logs', { params: { page: 1, limit: 1, since } });
+          if (!ignore) setLogCount(res.data.total || 0);
+        } catch {}
+      }
+    }
+    fetchLogCount();
+    return () => { ignore = true; };
+  }, [user]);
+
   return (
     <>
       <Navbar variant="dark" expand="lg" className="app-navbar" sticky="top">
@@ -34,6 +56,7 @@ const AppNavbar = () => {
           <Navbar.Collapse>
             <Nav className="me-auto app-main-nav">
               <Nav.Link as={Link} to="/">Danh sách tour</Nav.Link>
+              {(!user || user.role === 'user') && <Nav.Link as={Link} to="/articles">Bài viết</Nav.Link>}
               {(!user || user.role === 'user') && (
                 <NavDropdown title="Giới thiệu" id="intro-dropdown">
                   <NavDropdown.Item as={Link} to="/about">Về chúng tôi</NavDropdown.Item>
@@ -50,7 +73,9 @@ const AppNavbar = () => {
               {user?.role === 'user' && <Nav.Link as={Link} to="/contact">Liên hệ</Nav.Link>}
               {(user?.role === 'staff' || user?.role === 'admin') && <Nav.Link as={Link} to="/staff">Nhân viên</Nav.Link>}
               {user?.role === 'staff' && <Nav.Link as={Link} to="/staff#chat">Chat hỗ trợ</Nav.Link>}
-              {user?.role === 'admin' && <Nav.Link as={Link} to="/admin">Quản trị</Nav.Link>}
+              {user?.role === 'admin' && (
+                <Nav.Link as={Link} to="/admin">Quản trị</Nav.Link>
+              )}
             </Nav>
             {user ? (
               <Nav className="app-user-dropdown-nav">

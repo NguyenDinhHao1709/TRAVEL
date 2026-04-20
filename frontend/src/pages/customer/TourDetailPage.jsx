@@ -32,14 +32,16 @@ const STATUS_LABELS = {
   'open': 'Đang mở bán',
   'almost-full': 'Sắp hết chỗ',
   'closed': 'Đã đóng',
-  'draft': 'Bản nháp'
+  'draft': 'Bản nháp',
+  'departed': 'Đã khởi hành'
 };
 
 const STATUS_VARIANTS = {
   'open': 'success',
   'almost-full': 'warning',
   'closed': 'danger',
-  'draft': 'secondary'
+  'draft': 'secondary',
+  'departed': 'secondary'
 };
 
 const TRANSPORT_LABELS = {
@@ -50,6 +52,11 @@ const TRANSPORT_LABELS = {
 };
 
 const TourDetailPage = () => {
+      // State kiểm soát chỉnh sửa đánh giá
+      const [hasEditedReview, setHasEditedReview] = useState(false);
+      const [editingReview, setEditingReview] = useState(false);
+    // Tính trạng thái đã khởi hành (dùng cho badge và disable booking)
+    let isDeparted = false;
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -146,7 +153,9 @@ const TourDetailPage = () => {
         (b) => b.tour_id === Number(id) &&
           (['confirmed', 'completed'].includes(b.booking_status) || b.payment_status === 'paid')
       ));
-      setUserReview(myReviewRes.status === 'fulfilled' ? myReviewRes.value.data : null);
+      const review = myReviewRes.status === 'fulfilled' ? myReviewRes.value.data : null;
+      setUserReview(review);
+      setHasEditedReview(!!review?.edit_once);
       const wishlist = wishlistRes.status === 'fulfilled' ? wishlistRes.value.data : [];
       setWishlisted(Array.isArray(wishlist) && wishlist.some(w => w.tour_id === Number(id)));
     };
@@ -206,12 +215,6 @@ const TourDetailPage = () => {
       }, 1500);
       return;
     }
-
-    if (!canBookTour) {
-      setMessage('Tài khoản hiện tại không thể đặt tour');
-      return;
-    }
-
     const parsedCount = Number(booking.peopleCount);
     if (!parsedCount || parsedCount < 1 || !Number.isInteger(parsedCount)) {
       setMessage('Số lượng người không hợp lệ (tối thiểu 1 người)');
@@ -239,13 +242,19 @@ const TourDetailPage = () => {
         rating: Number(reviewForm.rating),
         comment: reviewForm.comment
       };
-      const { data } = await client.post('/reviews', payload);
-      setReviewMessage(data.message || 'Gửi đánh giá thành công');
+      if (editingReview) {
+        await client.put(`/reviews/${userReview.id}`, payload);
+      } else {
+        await client.post('/reviews', payload);
+      }
+      setReviewMessage('Gửi đánh giá thành công');
       setReviewForm({ rating: 5, comment: '' });
       // Reload user review
       const { data: myReview } = await client.get(`/reviews/my/${id}`);
       setUserReview(myReview);
       await loadTour();
+      if (editingReview) setHasEditedReview(true);
+      setEditingReview(false);
     } catch (error) {
       setReviewMessage(error.response?.data?.message || 'Không thể gửi đánh giá');
     } finally {
@@ -253,21 +262,7 @@ const TourDetailPage = () => {
     }
   };
 
-  const deleteOwnReview = async () => {
-    if (!userReview) return;
-    setDeleteReviewSubmitting(true);
-    setReviewMessage('');
-    try {
-      await client.delete(`/reviews/${userReview.id}/my`);
-      setUserReview(null);
-      setReviewMessage('Đã xóa đánh giá. Bạn có thể đánh giá lại.');
-      await loadTour();
-    } catch (error) {
-      setReviewMessage(error.response?.data?.message || 'Không thể xóa đánh giá');
-    } finally {
-      setDeleteReviewSubmitting(false);
-    }
-  };
+  // Đã loại bỏ chức năng xóa đánh giá, chỉ cho phép chỉnh sửa 1 lần
 
   const submitCustomerReply = async (reviewId) => {
     const reply = (customerReplyDrafts[reviewId] || '').trim();
@@ -286,6 +281,12 @@ const TourDetailPage = () => {
 
   if (!tour) {
     return <p>Đang tải...</p>;
+  }
+  // Chỉ tính toán isDeparted sau khi đã có tour
+  if (tour && tour.start_date) {
+    const today = new Date();
+    const tourStart = new Date(tour.start_date);
+    isDeparted = today > tourStart;
   }
 
   const tourImages = getTourImages(tour);
@@ -477,9 +478,52 @@ const TourDetailPage = () => {
                       {userReview.comment && (
                         <p style={{ fontSize: 14, color: '#374151', marginBottom: 10 }}>{userReview.comment}</p>
                       )}
-                      <Button size="sm" variant="outline-danger" disabled={deleteReviewSubmitting} onClick={deleteOwnReview}>
-                        {deleteReviewSubmitting ? 'Đang xóa...' : 'Xóa để đánh giá lại'}
-                      </Button>
+                      {!hasEditedReview && !editingReview && (
+                        <Button size="sm" variant="outline-primary" onClick={() => {
+                          setReviewForm({ rating: userReview.rating, comment: userReview.comment });
+                          setEditingReview(true);
+                        }}>
+                          Chỉnh sửa
+                        </Button>
+                      )}
+                      {editingReview && (
+                        <Form onSubmit={submitReview} className="mt-3">
+                          <Form.Group className="mb-2">
+                            <Form.Label className="mb-1 fw-semibold">Chỉnh sửa đánh giá</Form.Label>
+                            <div className="d-flex align-items-center gap-1">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <button
+                                  key={star} type="button" aria-label={`Chọn ${star} sao`}
+                                  onClick={() => setReviewForm((c) => ({ ...c, rating: star }))}
+                                  style={{
+                                    border: 'none', background: 'transparent', padding: 0, lineHeight: 1,
+                                    fontSize: '28px', cursor: 'pointer',
+                                    color: star <= reviewForm.rating ? '#f59e0b' : '#cbd5e1'
+                                  }}
+                                >
+                                  {star <= reviewForm.rating ? '★' : '☆'}
+                                </button>
+                              ))}
+                              <span className="ms-2" style={{ color: '#6b7280', fontSize: '13px' }}>{reviewForm.rating}/5</span>
+                            </div>
+                          </Form.Group>
+                          <Form.Group className="mb-2">
+                            <Form.Control
+                              as="textarea" rows={3} value={reviewForm.comment}
+                              onChange={(e) => setReviewForm((c) => ({ ...c, comment: e.target.value }))}
+                              placeholder="Chia sẻ trải nghiệm của bạn về tour"
+                            />
+                          </Form.Group>
+                          <Button type="submit" size="sm" disabled={reviewSubmitting}>
+                            {reviewSubmitting ? 'Đang gửi...' : 'Lưu chỉnh sửa'}
+                          </Button>
+                        </Form>
+                      )}
+                      {hasEditedReview && (
+                        <div className="text-muted mt-2" style={{ fontSize: 13 }}>
+                          Bạn chỉ được chỉnh sửa đánh giá 1 lần.
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <Form onSubmit={submitReview}>
@@ -609,11 +653,16 @@ const TourDetailPage = () => {
                       </div>
                     )}
 
-                    <Button className="w-100 py-2 fw-bold" size="lg" onClick={submitBooking}
-                      style={{ fontSize: '16px', borderRadius: '8px' }}
-                    >
-                      Đặt tour ngay
-                    </Button>
+                    {(tour.status === 'closed' || tour.status === 'draft' || isDeparted) ? (
+                      <Button className="w-100 py-2 fw-bold" size="lg" variant="secondary" disabled style={{ fontSize: '16px', borderRadius: '8px', opacity: 0.7 }}>
+                        {isDeparted ? 'Đã kết thúc' : 'Không thể đặt tour này'}
+                      </Button>
+                    ) : (
+                      <Button className="w-100 py-2 fw-bold" size="lg" onClick={submitBooking}
+                        style={{ fontSize: '16px', borderRadius: '8px' }}>
+                        Đặt tour ngay
+                      </Button>
+                    )}
                   </>
                 )}
               </Card.Body>

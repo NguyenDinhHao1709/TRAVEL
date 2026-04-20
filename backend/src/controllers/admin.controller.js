@@ -1,3 +1,31 @@
+// Lấy log hệ thống (system_logs)
+exports.getSystemLogs = async (req, res) => {
+  const { page = 1, limit = 10, search, role, action, since } = req.query;
+  const offset = (Number(page) - 1) * Number(limit);
+
+  let where = 'WHERE 1=1';
+  const params = [];
+  if (search) {
+    where += ' AND (action LIKE ? OR action_detail LIKE ? OR details LIKE ?)';
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+  }
+  if (role) { where += ' AND role = ?'; params.push(role); }
+  if (action) { where += ' AND action LIKE ?'; params.push(`%${action}%`); }
+  if (since) { where += ' AND created_at >= ?'; params.push(since); }
+
+  const [[{ total }]] = await pool.execute(
+    `SELECT COUNT(*) as total FROM system_logs ${where}`, params
+  );
+  const [data] = await pool.execute(
+    `SELECT l.*, u.full_name as user_name, u.email as user_email
+     FROM system_logs l
+     LEFT JOIN users u ON u.id = l.user_id
+     ${where}
+     ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
+    [...params, Number(limit), offset]
+  );
+  res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+};
 const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
