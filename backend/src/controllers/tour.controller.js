@@ -78,6 +78,10 @@ exports.createTour = async (req, res) => {
   );
 
   res.status(201).json({ id: result.insertId, message: 'Tạo tour thành công' });
+
+  // Log
+  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
+    [req.user.id, req.user.role, 'Tạo tour', `Tạo tour "${title}" (ID: ${result.insertId})`]).catch(() => {});
 };
 
 exports.updateTour = async (req, res) => {
@@ -116,6 +120,10 @@ exports.updateTour = async (req, res) => {
 
   await pool.execute(`UPDATE tours SET ${fields.join(', ')} WHERE id = ?`, params);
   res.json({ message: 'Cập nhật tour thành công' });
+
+  // Log
+  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
+    [req.user.id, req.user.role, 'Sửa tour', `Cập nhật tour ID: ${id}`]).catch(() => {});
 };
 
 exports.deleteTour = async (req, res) => {
@@ -124,4 +132,8 @@ exports.deleteTour = async (req, res) => {
   if (existing.length === 0) return res.status(404).json({ message: 'Không tìm thấy tour' });
   await pool.execute('DELETE FROM tours WHERE id = ?', [id]);
   res.json({ message: 'Xóa tour thành công' });
+
+  // Log
+  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
+    [req.user.id, req.user.role, 'Xóa tour', `Xóa tour ID: ${id}`]).catch(() => {});
 };

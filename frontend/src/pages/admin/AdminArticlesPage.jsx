@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Card, Form, Button, Row, Col, Alert, Table } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 import ImageUpload from '../../components/ImageUpload';
 import client from '../../api/client';
+import { useAuth } from '../../contexts/AuthContext';
 
 const initialForm = { title: '', content: '', imageUrl: '', tourId: '' };
 
@@ -13,10 +15,19 @@ const AdminArticlesPage = () => {
   const [form, setForm] = useState(initialForm);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('info');
+  const [articleFilter, setArticleFilter] = useState({ search: '', tourId: '' });
+  const [articlePage, setArticlePage] = useState(1);
+  const [articleTotalPages, setArticleTotalPages] = useState(1);
+  const [articleTotal, setArticleTotal] = useState(0);
 
-  const loadArticles = async () => {
-    const { data } = await client.get('/articles');
-    setArticles(data);
+  const loadArticles = async (page = articlePage, filter = articleFilter) => {
+    const { data } = await client.get('/articles', {
+      params: { page, limit: 10, ...filter }
+    });
+    setArticles(data.data);
+    setArticleTotal(data.total);
+    setArticlePage(data.page);
+    setArticleTotalPages(data.totalPages);
   };
 
   const loadTours = async () => {
@@ -25,9 +36,11 @@ const AdminArticlesPage = () => {
   };
 
   useEffect(() => {
-    loadArticles();
+    loadArticles(1, articleFilter);
     loadTours();
   }, []);
+
+  useEffect(() => { loadArticles(articlePage, articleFilter); }, [articlePage, articleFilter]);
 
   const resetForm = () => {
     setForm(initialForm);
@@ -77,7 +90,7 @@ const AdminArticlesPage = () => {
       }
       setMessageType('success');
       resetForm();
-      loadArticles();
+      loadArticles(1, articleFilter);
     } catch (err) {
       setMessage(err.response?.data?.message || 'Lưu bài viết thất bại');
       setMessageType('danger');
@@ -87,12 +100,21 @@ const AdminArticlesPage = () => {
   const handleDelete = async (id) => {
     if (!window.confirm('Xóa bài viết này?')) return;
     await client.delete(`/articles/${id}`);
-    loadArticles();
+    loadArticles(articlePage, articleFilter);
   };
+
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const backUrl = user?.role === 'staff' ? '/staff' : '/admin';
 
   return (
     <>
-      <h3 className="mb-3">Quản lý bài viết</h3>
+      <div className="d-flex align-items-center gap-2 mb-3">
+        <Button variant="outline-secondary" size="sm" onClick={() => navigate(backUrl)}>
+          ← Quay lại trang quản trị
+        </Button>
+        <h3 className="mb-0">Quản lý bài viết</h3>
+      </div>
       {message && (
         <Alert variant={messageType} dismissible onClose={() => setMessage('')}>
           {message}
@@ -179,6 +201,19 @@ const AdminArticlesPage = () => {
         </Card>
       )}
 
+      <Form className="mb-3" onSubmit={e => { e.preventDefault(); setArticlePage(1); loadArticles(1, articleFilter); }}>
+        <Row className="g-2 align-items-end">
+          <Col md={4}><Form.Control placeholder="Tìm theo tiêu đề hoặc nội dung" value={articleFilter.search} onChange={e => setArticleFilter(f => ({ ...f, search: e.target.value }))} /></Col>
+          <Col md={3}>
+            <Form.Select value={articleFilter.tourId} onChange={e => setArticleFilter(f => ({ ...f, tourId: e.target.value }))}>
+              <option value="">Tất cả tour</option>
+              {tours.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+            </Form.Select>
+          </Col>
+          <Col md={2}><Button type="submit" className="w-100">Lọc</Button></Col>
+        </Row>
+      </Form>
+
       <Table striped bordered hover responsive>
         <thead>
           <tr>
@@ -194,7 +229,7 @@ const AdminArticlesPage = () => {
           {articles.length === 0 && (
             <tr><td colSpan={6} className="text-center">Chưa có bài viết nào</td></tr>
           )}
-          {articles.map((a) => (
+          {(articles || []).map((a) => (
             <tr key={a.id}>
               <td>{a.id}</td>
               <td>{a.title}</td>
@@ -221,6 +256,13 @@ const AdminArticlesPage = () => {
           ))}
         </tbody>
       </Table>
+      <div className="d-flex justify-content-between align-items-center mt-2">
+        <div>Tổng: {articleTotal} | Trang {articlePage}/{articleTotalPages}</div>
+        <div>
+          <Button size="sm" disabled={articlePage === 1} onClick={() => setArticlePage(p => Math.max(1, p - 1))}>Trước</Button>{' '}
+          <Button size="sm" disabled={articlePage === articleTotalPages} onClick={() => setArticlePage(p => Math.min(articleTotalPages, p + 1))}>Sau</Button>
+        </div>
+      </div>
     </>
   );
 };

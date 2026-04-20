@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Card, Table, Button, Alert, Badge, Nav, Tab, Form, Row, Col, Modal } from 'react-bootstrap';
 import { io } from 'socket.io-client';
 import * as XLSX from 'xlsx';
@@ -33,6 +34,10 @@ const renderStars = (value = 0) => {
 
 const StaffDashboardPage = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const validTabs = ['bookings', 'customers', 'chat', 'reviews', 'contacts'];
+  const hashTab = location.hash?.replace('#', '');
+  const [activeTab, setActiveTab] = useState(validTabs.includes(hashTab) ? hashTab : 'bookings');
   const [bookings, setBookings] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [contactInbox, setContactInbox] = useState({ unreadCount: 0, items: [] });
@@ -93,6 +98,11 @@ const StaffDashboardPage = () => {
     load();
     loadReviews(1, reviewFilter);
   }, []);
+
+  useEffect(() => {
+    const h = location.hash?.replace('#', '');
+    if (validTabs.includes(h)) setActiveTab(h);
+  }, [location.hash]);
 
   useEffect(() => { loadReviews(reviewPage, reviewFilter); }, [reviewPage]);
 
@@ -251,7 +261,7 @@ const StaffDashboardPage = () => {
       <h3 className="mb-3">Bảng điều khiển nhân viên</h3>
       {message && <Alert variant="info" dismissible onClose={() => setMessage('')}>{message}</Alert>}
 
-      <Tab.Container defaultActiveKey="bookings">
+      <Tab.Container activeKey={activeTab} onSelect={(k) => setActiveTab(k)}>
         <Nav variant="tabs" className="mb-3 app-scroll-tabs">
           <Nav.Item>
             <Nav.Link eventKey="bookings">📋 Quản lý đặt tour</Nav.Link>
@@ -278,8 +288,12 @@ const StaffDashboardPage = () => {
               {contactInbox.unreadCount > 0 && (
                 <Badge bg="danger" className="ms-1">{contactInbox.unreadCount}</Badge>
               )}
-            </Nav.Link>
+            </Nav.Link>          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link onClick={() => window.location.href = '/staff/tours'} style={{ cursor: 'pointer' }}>🗺️ Quản lý Tour</Nav.Link>
           </Nav.Item>
+          <Nav.Item>
+            <Nav.Link onClick={() => window.location.href = '/staff/articles'} style={{ cursor: 'pointer' }}>📰 Quản lý Bài viết</Nav.Link>          </Nav.Item>
         </Nav>
 
         <Tab.Content>

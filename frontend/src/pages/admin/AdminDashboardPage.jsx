@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Row, Col, Table, Form, Button, Alert, Badge, Nav, Tab } from 'react-bootstrap';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import client from '../../api/client';
 
 const formatDateTimeVN = (value) => {
@@ -155,7 +155,7 @@ const AdminDashboardPage = () => {
 
   const markContactAsRead = async (id) => {
     await client.patch(`/contact/messages/${id}/read`);
-    load();
+    loadContacts();
   };
 
   const viewUserDetail = async (userId) => {
@@ -174,7 +174,7 @@ const AdminDashboardPage = () => {
     try {
       await client.patch(`/admin/users/${userId}/lock`);
       setUserActionMessage('Đã khóa tài khoản người dùng');
-      await load();
+      await loadUsers();
       if (selectedUserDetail?.user?.id === userId) {
         await viewUserDetail(userId);
       }
@@ -187,7 +187,7 @@ const AdminDashboardPage = () => {
     try {
       await client.patch(`/admin/users/${userId}/unlock`);
       setUserActionMessage('Đã mở khóa tài khoản người dùng');
-      await load();
+      await loadUsers();
       if (selectedUserDetail?.user?.id === userId) {
         await viewUserDetail(userId);
       }
@@ -201,7 +201,7 @@ const AdminDashboardPage = () => {
     try {
       await client.delete(`/admin/users/${userId}`);
       setUserActionMessage('Đã xóa vĩnh viễn tài khoản người dùng');
-      await load();
+      await loadUsers();
       if (selectedUserDetail?.user?.id === userId) {
         setSelectedUserDetail(null);
       }
@@ -282,9 +282,9 @@ const AdminDashboardPage = () => {
   }
 
   const chartData = [
-    { name: 'Người dùng', value: dashboard.totalUsers },
-    { name: 'Tour', value: dashboard.totalTours },
-    { name: 'Đơn đặt tour', value: dashboard.totalBookings }
+    { name: 'Người dùng', value: dashboard.totalUsers, fill: '#0d6efd' },
+    { name: 'Tour', value: dashboard.totalTours, fill: '#198754' },
+    { name: 'Đơn đặt tour', value: dashboard.totalBookings, fill: '#fd7e14' }
   ];
 
   const reportGroupLabel = {
@@ -330,10 +330,13 @@ const AdminDashboardPage = () => {
           <Nav.Item>
             <Nav.Link onClick={() => navigate('/admin/articles')} style={{ cursor: 'pointer' }}>Quản lý Bài viết</Nav.Link>
           </Nav.Item>
+          <Nav.Item>
+            <Nav.Link onClick={() => navigate('/staff#chat')} style={{ cursor: 'pointer' }}>Chat hỗ trợ</Nav.Link>
+          </Nav.Item>
         </Nav>
 
         <Tab.Content>
-          <Tab.Pane eventKey="overview">
+          <Tab.Pane eventKey="overview" mountOnEnter unmountOnExit>
             <Row className="g-3 mb-4">
               <Col md={3}><Card body>Tổng người dùng: <strong>{dashboard.totalUsers}</strong></Card></Col>
               <Col md={3}><Card body>Tổng tour: <strong>{dashboard.totalTours}</strong></Card></Col>
@@ -342,21 +345,25 @@ const AdminDashboardPage = () => {
             </Row>
 
             <Card className="mb-4">
-              <Card.Body style={{ height: 280 }}>
+              <Card.Body>
                 <h5>Thống kê</h5>
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={chartData}>
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#0d6efd" />
+                    <Bar dataKey="value">
+                      {chartData.map((entry, index) => (
+                        <Cell key={index} fill={entry.fill} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </Card.Body>
             </Card>
           </Tab.Pane>
 
-          <Tab.Pane eventKey="report">
+          <Tab.Pane eventKey="report" mountOnEnter unmountOnExit>
             <Card className="mb-4">
               <Card.Body>
                 <h5 className="mb-3">Báo cáo đặt tour theo thời gian</h5>
@@ -429,12 +436,12 @@ const AdminDashboardPage = () => {
                     </Row>
 
                     <Card className="mb-3">
-                      <Card.Body style={{ height: 280 }}>
+                      <Card.Body>
                         <h6>
                           Biểu đồ {reportGroupLabel[bookingReport.groupBy] || 'Theo thời gian'}
                           {bookingReport.selected ? ` (${bookingReport.selected})` : ''}
                         </h6>
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={240}>
                           <BarChart data={bookingReport.series}>
                             <XAxis dataKey="period" />
                             <YAxis />
@@ -475,7 +482,7 @@ const AdminDashboardPage = () => {
             </Card>
           </Tab.Pane>
 
-          <Tab.Pane eventKey="users">
+          <Tab.Pane eventKey="users" mountOnEnter unmountOnExit>
             <Card className="mb-4">
               <Card.Body>
                 <h5>Quản lý người dùng</h5>
@@ -723,7 +730,7 @@ const AdminDashboardPage = () => {
             </Card>
           </Tab.Pane>
 
-          <Tab.Pane eventKey="reviews">
+          <Tab.Pane eventKey="reviews" mountOnEnter unmountOnExit>
             <Card className="mb-4">
               <Card.Body>
                 <h5 className="mb-3">Quản lý đánh giá</h5>
@@ -832,7 +839,7 @@ const AdminDashboardPage = () => {
             </Card>
           </Tab.Pane>
 
-          <Tab.Pane eventKey="contacts">
+          <Tab.Pane eventKey="contacts" mountOnEnter unmountOnExit>
             <Card className="mb-4">
               <Card.Body className="mb-2">
                 <h5>
@@ -841,6 +848,20 @@ const AdminDashboardPage = () => {
                     <span className="badge bg-danger ms-2">{contactInbox.unreadCount} mới</span>
                   )}
                 </h5>
+                <Form className="mb-3" onSubmit={e => { e.preventDefault(); setContactPage(1); loadContacts(1, contactFilter); }}>
+                  <Row className="g-2 align-items-end">
+                    <Col md={4}><Form.Control placeholder="Tìm tên người gửi hoặc nội dung" value={contactFilter.search} onChange={e => setContactFilter(f => ({ ...f, search: e.target.value }))} /></Col>
+                    <Col md={3}><Form.Control placeholder="Lọc theo email" value={contactFilter.email} onChange={e => setContactFilter(f => ({ ...f, email: e.target.value }))} /></Col>
+                    <Col md={2}>
+                      <Form.Select value={contactFilter.is_read} onChange={e => setContactFilter(f => ({ ...f, is_read: e.target.value }))}>
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="0">Chưa đọc</option>
+                        <option value="1">Đã đọc</option>
+                      </Form.Select>
+                    </Col>
+                    <Col md={2}><Button type="submit" className="w-100">Lọc</Button></Col>
+                  </Row>
+                </Form>
                 <Table striped bordered hover responsive>
                   <thead>
                     <tr>
@@ -849,7 +870,6 @@ const AdminDashboardPage = () => {
                       <th>Người gửi</th>
                       <th>Liên hệ</th>
                       <th>Nội dung</th>
-                      <th>Số khách</th>
                       <th>Thời gian</th>
                       <th>Trạng thái</th>
                     </tr>
@@ -865,7 +885,6 @@ const AdminDashboardPage = () => {
                           {item.phone && <div>📞 {item.phone}</div>}
                         </td>
                         <td style={{ maxWidth: 360 }}>{item.message}</td>
-                        <td className="text-center">{item.guest_count > 0 ? item.guest_count : '—'}</td>
                         <td>{formatDateTimeVN(item.created_at)}</td>
                         <td>
                           {Number(item.is_read) === 1 ? (
@@ -880,19 +899,43 @@ const AdminDashboardPage = () => {
                     ))}
                   </tbody>
                 </Table>
+                <div className="d-flex justify-content-between align-items-center mt-2">
+                  <div>Tổng: {contactTotal} | Trang {contactPage}/{contactTotalPages}</div>
+                  <div>
+                    <Button size="sm" disabled={contactPage === 1} onClick={() => setContactPage(p => Math.max(1, p - 1))}>Trước</Button>{' '}
+                    <Button size="sm" disabled={contactPage === contactTotalPages} onClick={() => setContactPage(p => Math.min(contactTotalPages, p + 1))}>Sau</Button>
+                  </div>
+                </div>
               </Card.Body>
             </Card>
           </Tab.Pane>
 
-          <Tab.Pane eventKey="logs">
+          <Tab.Pane eventKey="logs" mountOnEnter unmountOnExit>
             <Card>
               <Card.Body>
                 <h5>Nhật ký hệ thống</h5>
+                <Form className="mb-3" onSubmit={e => { e.preventDefault(); setLogPage(1); loadLogs(1, logFilter); }}>
+                  <Row className="g-2 align-items-end">
+                    <Col md={4}><Form.Control placeholder="Tìm theo hành động hoặc chi tiết" value={logFilter.search} onChange={e => setLogFilter(f => ({ ...f, search: e.target.value }))} /></Col>
+                    <Col md={2}>
+                      <Form.Select value={logFilter.role} onChange={e => setLogFilter(f => ({ ...f, role: e.target.value }))}>
+                        <option value="">Tất cả vai trò</option>
+                        <option value="admin">Quản trị viên</option>
+                        <option value="staff">Nhân viên</option>
+                        <option value="user">Khách hàng</option>
+                        <option value="system">Hệ thống</option>
+                      </Form.Select>
+                    </Col>
+                    <Col md={3}><Form.Control placeholder="Lọc theo hành động" value={logFilter.action} onChange={e => setLogFilter(f => ({ ...f, action: e.target.value }))} /></Col>
+                    <Col md={2}><Button type="submit" className="w-100">Lọc</Button></Col>
+                  </Row>
+                </Form>
                 <Table striped bordered hover responsive>
                   <thead>
                     <tr>
                       <th>ID</th>
                       <th>Hành động</th>
+                      <th>Người thực hiện</th>
                       <th>Vai trò</th>
                       <th>Thời gian tạo</th>
                     </tr>
@@ -902,12 +945,20 @@ const AdminDashboardPage = () => {
                       <tr key={log.id}>
                         <td>{log.id}</td>
                         <td>{actionLabel[log.action] || log.action}</td>
-                        <td>{roleLabel[log.actor_role] || log.actor_role}</td>
+                        <td>{log.user_name || '—'}</td>
+                        <td>{roleLabel[log.role] || log.role || '—'}</td>
                         <td>{formatDateTimeVN(log.created_at)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </Table>
+                <div className="d-flex justify-content-between align-items-center mt-2">
+                  <div>Tổng: {logTotal} | Trang {logPage}/{logTotalPages}</div>
+                  <div>
+                    <Button size="sm" disabled={logPage === 1} onClick={() => setLogPage(p => Math.max(1, p - 1))}>Trước</Button>{' '}
+                    <Button size="sm" disabled={logPage === logTotalPages} onClick={() => setLogPage(p => Math.min(logTotalPages, p + 1))}>Sau</Button>
+                  </div>
+                </div>
               </Card.Body>
             </Card>
           </Tab.Pane>

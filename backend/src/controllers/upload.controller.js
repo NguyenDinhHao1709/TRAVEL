@@ -1,14 +1,24 @@
 const cloudinaryService = require('../services/cloudinary.service');
 const path = require('path');
 const fs = require('fs');
+let sharp;
+try { sharp = require('sharp'); } catch { sharp = null; }
 
 const UPLOAD_DIR = path.join(__dirname, '../../../uploads');
 
-function saveLocalFile(buffer, originalname) {
+async function processImage(buffer) {
+  if (!sharp) return buffer;
+  return sharp(buffer)
+    .resize({ width: 1920, withoutEnlargement: true })
+    .jpeg({ quality: 85, mozjpeg: true })
+    .toBuffer();
+}
+
+async function saveLocalFile(buffer, originalname) {
   if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-  const ext = path.extname(originalname) || '.jpg';
-  const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
-  fs.writeFileSync(path.join(UPLOAD_DIR, filename), buffer);
+  const processed = await processImage(buffer);
+  const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+  fs.writeFileSync(path.join(UPLOAD_DIR, filename), processed);
   return `/uploads/${filename}`;
 }
 
@@ -27,7 +37,7 @@ exports.uploadTourImages = async (req, res) => {
   }
 
   // Fallback: lưu local khi Cloudinary chưa cấu hình
-  const imageUrls = files.map((file) => saveLocalFile(file.buffer, file.originalname));
+  const imageUrls = await Promise.all(files.map((file) => saveLocalFile(file.buffer, file.originalname)));
   return res.json({ imageUrls, imageUrl: imageUrls[0] });
 };
 
@@ -42,6 +52,6 @@ exports.uploadSingleImage = async (req, res) => {
   }
 
   // Fallback: lưu local
-  const imageUrl = saveLocalFile(file.buffer, file.originalname);
+  const imageUrl = await saveLocalFile(file.buffer, file.originalname);
   return res.json({ imageUrl });
 };
