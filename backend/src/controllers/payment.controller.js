@@ -1,5 +1,28 @@
 const pool = require('../config/db');
 const paymentService = require('../services/payment.service');
+const emailService = require('../services/email.service');
+
+const fmtDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '—';
+const fmtMoney = (n) => Number(n).toLocaleString('vi-VN') + ' ₫';
+
+function buildPaymentConfirmEmail({ bookingId, fullName, tourTitle, startDate, peopleCount, totalAmount, paymentMethod, transactionCode }) {
+  return `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#333">
+    <h2 style="color:#198754">HK2 Travel — Thanh toán thành công</h2>
+    <p>Xin chào${fullName ? ' <strong>' + fullName + '</strong>' : ''},</p>
+    <p>Thanh toán của bạn đã được xác nhận. Chúc bạn có chuyến du lịch tuyệt vời!</p>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0">
+      <tr style="background:#f8f9fa"><td style="padding:8px;border:1px solid #dee2e6"><strong>Mã đặt tour</strong></td><td style="padding:8px;border:1px solid #dee2e6">#${bookingId}</td></tr>
+      <tr><td style="padding:8px;border:1px solid #dee2e6"><strong>Tour</strong></td><td style="padding:8px;border:1px solid #dee2e6">${tourTitle}</td></tr>
+      <tr style="background:#f8f9fa"><td style="padding:8px;border:1px solid #dee2e6"><strong>Ngày khởi hành</strong></td><td style="padding:8px;border:1px solid #dee2e6">${fmtDate(startDate)}</td></tr>
+      <tr><td style="padding:8px;border:1px solid #dee2e6"><strong>Số người</strong></td><td style="padding:8px;border:1px solid #dee2e6">${peopleCount}</td></tr>
+      <tr style="background:#f8f9fa"><td style="padding:8px;border:1px solid #dee2e6"><strong>Số tiền đã thanh toán</strong></td><td style="padding:8px;border:1px solid #dee2e6"><strong style="color:#198754">${fmtMoney(totalAmount)}</strong></td></tr>
+      <tr><td style="padding:8px;border:1px solid #dee2e6"><strong>Phương thức</strong></td><td style="padding:8px;border:1px solid #dee2e6">${paymentMethod}</td></tr>
+      ${transactionCode ? `<tr style="background:#f8f9fa"><td style="padding:8px;border:1px solid #dee2e6"><strong>Mã giao dịch</strong></td><td style="padding:8px;border:1px solid #dee2e6">${transactionCode}</td></tr>` : ''}
+      <tr><td style="padding:8px;border:1px solid #dee2e6"><strong>Trạng thái</strong></td><td style="padding:8px;border:1px solid #dee2e6"><span style="color:#198754">✓ Đã xác nhận</span></td></tr>
+    </table>
+    <p style="color:#6c757d;font-size:13px">Email này được gửi tự động, vui lòng không trả lời trực tiếp.</p>
+  </div>`;
+}
 
 // Tạo URL thanh toán VNPay
 exports.createVnpayUrl = async (req, res) => {
@@ -92,6 +115,28 @@ exports.vnpayReturn = async (req, res) => {
       [result.transactionNo || null, bookingId]
     );
 
+    // Gửi email xác nhận thanh toán (fire-and-forget)
+    pool.execute(`
+      SELECT b.people_count, b.total_amount, t.title, t.start_date, u.email, u.full_name
+      FROM bookings b
+      LEFT JOIN tours t ON t.id = b.tour_id
+      LEFT JOIN users u ON u.id = b.user_id
+      WHERE b.id = ? LIMIT 1
+    `, [bookingId]).then(([rows]) => {
+      if (!rows.length || !rows[0].email) return;
+      const r = rows[0];
+      emailService.sendMail(
+        r.email,
+        `Thanh toán thành công — ${r.title}`,
+        buildPaymentConfirmEmail({
+          bookingId, fullName: r.full_name, tourTitle: r.title,
+          startDate: r.start_date, peopleCount: r.people_count,
+          totalAmount: r.total_amount, paymentMethod: 'VNPAY',
+          transactionCode: result.transactionNo
+        })
+      ).catch(() => {});
+    }).catch(() => {});
+
     return res.json({
       success: true,
       message: 'Thanh toán thành công',
@@ -148,6 +193,28 @@ exports.devSimulatePayment = async (req, res) => {
     "UPDATE bookings SET payment_status = 'paid', booking_status = 'confirmed', payment_method = 'dev_simulate', updated_at = NOW() WHERE id = ?",
     [bookingId]
   );
+
+  // Gửi email xác nhận thanh toán (fire-and-forget)
+  pool.execute(`
+    SELECT b.people_count, b.total_amount, t.title, t.start_date, u.email, u.full_name
+    FROM bookings b
+    LEFT JOIN tours t ON t.id = b.tour_id
+    LEFT JOIN users u ON u.id = b.user_id
+    WHERE b.id = ? LIMIT 1
+  `, [bookingId]).then(([rows]) => {
+    if (!rows.length || !rows[0].email) return;
+    const r = rows[0];
+    emailService.sendMail(
+      r.email,
+      `Thanh toán thành công — ${r.title}`,
+      buildPaymentConfirmEmail({
+        bookingId, fullName: r.full_name, tourTitle: r.title,
+        startDate: r.start_date, peopleCount: r.people_count,
+        totalAmount: r.total_amount, paymentMethod: 'Dev Simulate',
+        transactionCode: null
+      })
+    ).catch(() => {});
+  }).catch(() => {});
 
   res.json({ success: true, message: '[DEV] Giả lập thanh toán thành công', bookingId });
 };
