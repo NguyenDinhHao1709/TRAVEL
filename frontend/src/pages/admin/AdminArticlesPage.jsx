@@ -109,12 +109,7 @@ const AdminArticlesPage = () => {
 
   return (
     <>
-      <div className="d-flex align-items-center gap-2 mb-3">
-        <Button variant="outline-secondary" size="sm" onClick={() => navigate(backUrl)}>
-          ← Quay lại trang quản trị
-        </Button>
-        <h3 className="mb-0">Quản lý bài viết</h3>
-      </div>
+     
       {message && (
         <Alert variant={messageType} dismissible onClose={() => setMessage('')}>
           {message}

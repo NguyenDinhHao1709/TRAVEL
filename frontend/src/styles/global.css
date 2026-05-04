@@ -1,4 +1,72 @@
 /* ============================================
+   ADMIN DASHBOARD & TABLE RESPONSIVE
+   ============================================ */
+@media (max-width: 992px) {
+  .table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table thead th,
+  .table tbody td {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 768px) {
+  .table thead th,
+  .table tbody td {
+    font-size: 0.75rem;
+    padding: 0.45rem 0.4rem;
+  }
+  .table th:nth-child(3),
+  .table td:nth-child(3),
+  .table th:nth-child(4),
+  .table td:nth-child(4),
+  .table th:nth-child(5),
+  .table td:nth-child(5) {
+    display: none;
+  }
+}
+
+/* ============================================
+   NAVBAR RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+  .app-navbar .container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .app-brand {
+    flex-direction: row;
+    gap: 0.3rem;
+  }
+  .app-brand-text {
+    font-size: 0.95rem;
+  }
+  .app-brand-text span {
+    font-size: 0.5rem;
+  }
+}
+
+/* ============================================
+   FOOTER RESPONSIVE
+   ============================================ */
+@media (max-width: 768px) {
+  .app-footer .row.app-footer-grid {
+    flex-direction: column;
+    gap: 1.5rem;
+    text-align: center;
+  }
+  .app-footer .col-lg-3,
+  .app-footer .col-md-6 {
+    max-width: 100%;
+    flex: 0 0 100%;
+  }
+  .footer-social-icons {
+    justify-content: center;
+  }
+}
+/* ============================================
    ROOT VARIABLES
    ============================================ */
 :root {

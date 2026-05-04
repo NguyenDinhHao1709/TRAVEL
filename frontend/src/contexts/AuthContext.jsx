@@ -25,8 +25,8 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
-  const login = async (email, password, captchaToken, captchaText) => {
-    const { data } = await client.post('/auth/login', { email, password, captchaToken, captchaText });
+  const login = async (email, password) => {
+    const { data } = await client.post('/auth/login', { email, password });
     localStorage.setItem('token', data.token);
     if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('user', JSON.stringify(data.user));

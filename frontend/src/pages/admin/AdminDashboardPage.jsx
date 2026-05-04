@@ -300,7 +300,7 @@ const AdminDashboardPage = () => {
 
   return (
     <>
-      <h3 className="mb-3">Quản trị</h3>
+      {/* Đã xóa tiêu đề "Quản trị" dưới menu */}
       <Tab.Container defaultActiveKey="overview">
         <Nav variant="tabs" className="mb-3 app-scroll-tabs">
           <Nav.Item>

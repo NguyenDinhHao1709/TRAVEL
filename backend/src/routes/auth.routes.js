@@ -4,7 +4,6 @@ const authenticate = require('../middleware/auth');
 const { authLimiter, otpLimiter } = require('../middleware/rate-limit');
 const router = express.Router();
 
-router.get('/captcha', authController.getCaptcha);
 router.post('/login', authLimiter, authController.login);
 router.post('/register/request-otp', otpLimiter, authController.requestRegisterOtp);
 router.post('/register', authLimiter, authController.register);
