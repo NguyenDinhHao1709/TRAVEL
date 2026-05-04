@@ -1,28 +1,14 @@
 const bcrypt = require('bcryptjs');
 const pool = require('../config/db');
 const jwtUtil = require('../utils/jwt');
-const captchaService = require('../services/captcha.service');
 const otpService = require('../services/register-otp.service');
 const emailService = require('../services/email.service');
 
-exports.getCaptcha = (req, res) => {
-  const { captchaToken, captchaSvg } = captchaService.generate();
-  res.json({ captchaToken, captchaSvg });
-};
-
 exports.login = async (req, res) => {
-  const { email, password, captchaToken, captchaText } = req.body;
+  const { email, password } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ message: 'Vui lòng nhập email và mật khẩu' });
-  }
-
-  if (!captchaToken || !captchaText) {
-    return res.status(400).json({ message: 'Vui lòng nhập mã CAPTCHA' });
-  }
-
-  if (!captchaService.verify(captchaToken, captchaText)) {
-    return res.status(400).json({ message: 'Mã CAPTCHA không đúng' });
   }
 
   const [rows] = await pool.execute(

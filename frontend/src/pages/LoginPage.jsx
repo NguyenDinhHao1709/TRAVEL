@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, Button, Form, Alert, InputGroup, Spinner } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import DOMPurify from 'dompurify';
 import client from '../api/client';
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
@@ -16,27 +15,11 @@ const LoginPage = () => {
   const [resetToken, setResetToken] = useState('');
   const [forgotOtpSent, setForgotOtpSent] = useState(false);
   const [forgotInfo, setForgotInfo] = useState('');
-  const [captcha, setCaptcha] = useState({ captchaToken: '', captchaSvg: '' });
-  const [captchaText, setCaptchaText] = useState('');
   const [error, setError] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading] = useState(false);
-
-  const loadCaptcha = async () => {
-    try {
-      const { data } = await client.get('/auth/captcha');
-      setCaptcha({ captchaToken: data.captchaToken, captchaSvg: data.captchaSvg });
-      setCaptchaText('');
-    } catch (err) {
-      setError('Không tải được mã CAPTCHA, vui lòng thử lại');
-    }
-  };
-
-  useEffect(() => {
-    loadCaptcha();
-  }, []);
 
   const emailValue = String(form.email || '').trim();
   const showEmailError = emailValue.length > 0 && !isValidEmail(emailValue);
@@ -49,19 +32,13 @@ const LoginPage = () => {
       return;
     }
 
-    if (!captchaText.trim()) {
-      setError('Vui lòng nhập mã CAPTCHA');
-      return;
-    }
-
     try {
       setError('');
       setLoading(true);
-      await login(form.email, form.password, captcha.captchaToken, captchaText);
+      await login(form.email, form.password);
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại');
-      loadCaptcha();
     } finally {
       setLoading(false);
     }
@@ -116,7 +93,6 @@ const LoginPage = () => {
       setResetToken('');
       setForgotForm({ email: forgotForm.email, otpCode: '', newPassword: '', confirmPassword: '' });
       setForm((prev) => ({ ...prev, email: forgotForm.email, password: '' }));
-      loadCaptcha();
     } catch (err) {
       setError(err.response?.data?.message || 'Không thể xử lý quên mật khẩu');
     } finally {
@@ -159,7 +135,6 @@ const LoginPage = () => {
     setError('');
     setForgotInfo('');
     setForgotMode(false);
-    loadCaptcha();
   };
 
   return (
@@ -195,24 +170,6 @@ const LoginPage = () => {
                   {showPw ? '🙈' : '👁️'}
                 </Button>
               </InputGroup>
-            </Form.Group>
-            <Form.Group className="mb-3">
-              <Form.Label>CAPTCHA</Form.Label>
-              <div className="d-flex align-items-center gap-2 mb-2">
-                <div
-                  style={{ minWidth: 160 }}
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(captcha.captchaSvg || '') }}
-                />
-                <Button type="button" variant="outline-secondary" onClick={loadCaptcha}>
-                  Làm mới
-                </Button>
-              </div>
-              <Form.Control
-                value={captchaText}
-                onChange={(e) => setCaptchaText(e.target.value)}
-                placeholder="Nhập mã trong hình"
-                required
-              />
             </Form.Group>
             <div className="d-flex gap-2">
               <Button type="submit" disabled={loading}>

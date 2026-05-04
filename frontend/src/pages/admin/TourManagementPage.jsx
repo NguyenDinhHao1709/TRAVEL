@@ -238,15 +238,7 @@ const TourManagementPage = () => {
 
   return (
     <>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <div className="d-flex align-items-center gap-2">
-          <Button variant="outline-secondary" size="sm" onClick={() => navigate(backUrl)}>
-            ← Quay lại trang quản trị
-          </Button>
-          <h3 className="mb-0">Quản lý tour</h3>
-        </div>
-        <span className="text-muted">{filteredTours.length} / {tours.length} tour</span>
-      </div>
+      {/* Đã xóa tiêu đề "Quản trị" dưới menu */}
       {message && <Alert variant="info" dismissible onClose={() => setMessage('')}>{message}</Alert>}
 
       {!isFormOpen ? (

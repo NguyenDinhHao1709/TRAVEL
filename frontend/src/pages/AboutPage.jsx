@@ -21,7 +21,7 @@ const AboutPage = () => {
             HK2 Travel – Đồng hành mọi hành trình
           </h1>
           <p style={{ fontSize: '1.1rem', opacity: 0.85, maxWidth: '600px', lineHeight: 1.7 }}>
-            Chúng tôi là công ty du lịch uy tín với hơn 10 năm kinh nghiệm, chuyên cung cấp các tour du lịch trong nước chất lượng cao, giá cả hợp lý, phục vụ hàng nghìn khách hàng mỗi năm.
+            Chúng tôi là công ty du lịch uy tín , chuyên cung cấp các tour du lịch trong nước chất lượng cao, giá cả hợp lý, phục vụ hàng nghìn khách hàng mỗi năm.
           </p>
         </div>
         <div style={{
@@ -31,21 +31,7 @@ const AboutPage = () => {
       </div>
 
       {/* Số liệu nổi bật */}
-      <Row className="g-3 mb-5 text-center">
-        {[
-          { num: '10+', label: 'Năm kinh nghiệm' },
-          { num: '50+', label: 'Tour trong nước' },
-          { num: '10.000+', label: 'Khách hàng hài lòng' },
-          { num: '98%', label: 'Đánh giá tốt' },
-        ].map((item) => (
-          <Col xs={6} md={3} key={item.label}>
-            <Card body className="h-100 text-center border-0 shadow-sm" style={{ borderRadius: '12px' }}>
-              <div style={{ fontSize: '2rem', fontWeight: 800, color: '#0d6efd' }}>{item.num}</div>
-              <div style={{ color: '#6c757d', fontSize: '0.95rem' }}>{item.label}</div>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+  
 
       {/* Sứ mệnh & Tầm nhìn */}
       <Row className="g-4 mb-5">
