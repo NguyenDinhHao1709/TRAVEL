@@ -6,8 +6,8 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const initialBotMessage = {
   type: 'bot',
-  text: 'Xin chào! Mình là trợ lý du lịch của HK2 Travel. Bạn có thể hỏi về giá, điểm đến, tour còn chỗ, lịch trình hoặc cách đặt tour.',
-  suggestions: ['Gợi ý tour dưới 4 triệu', 'Tour nào còn chỗ nhiều?', 'Tư vấn tour Đà Nẵng']
+  text: 'Xin chào! Mình là trợ lý AI của HK2 Travel. Bạn có thể hỏi về chức năng hệ thống, quy trình đặt tour, thanh toán hoặc nhờ tư vấn tour phù hợp.',
+  suggestions: ['Hệ thống HK2 Travel hỗ trợ gì?', 'Cách đặt tour và thanh toán?', 'Gợi ý tour Đà Nẵng còn chỗ']
 };
 
 const formatMoney = (value) => Number(value || 0).toLocaleString('vi-VN');
@@ -25,19 +25,25 @@ const formatDate = (value) => {
 
 const getAssistantDisplayText = (text, tours) => {
   const message = String(text || '').trim();
-  if (!Array.isArray(tours) || tours.length === 0) {
-    return message;
+  if (!message) {
+    return Array.isArray(tours) && tours.length > 0
+      ? 'Mình đã tìm thấy một số tour phù hợp bên dưới.'
+      : '';
   }
 
-  const lines = message.split('\n').map((line) => line.trim()).filter(Boolean);
-  const nonBulletLines = lines.filter((line) => !line.startsWith('-'));
-
-  if (nonBulletLines.length === 0) {
-    return 'Mình đã liệt kê các tour phù hợp bên dưới.';
-  }
-
-  return nonBulletLines.join('\n');
+  return message;
 };
+
+const toHistoryPayload = (items) => (
+  (Array.isArray(items) ? items : [])
+    .filter((item) => item?.type === 'user' || item?.type === 'bot')
+    .map((item) => ({
+      role: item.type === 'user' ? 'user' : 'assistant',
+      text: String(item.text || '').trim()
+    }))
+    .filter((item) => item.text)
+    .slice(-8)
+);
 
 const ChatbotPage = () => {
   const { user } = useAuth();
@@ -95,7 +101,8 @@ const ChatbotPage = () => {
     setConversations((prev) => [...prev, { type: 'user', text: userText }]);
 
     try {
-      const { data } = await client.post('/chatbot/ask', { message: userText });
+      const history = toHistoryPayload(conversations);
+      const { data } = await client.post('/chatbot/ask', { message: userText, history });
       setConversations((prev) => [
         ...prev,
         {
@@ -180,10 +187,10 @@ const ChatbotPage = () => {
                       : item.text}
                     {item.type === 'bot' && item.source && (
                       <Badge
-                        bg={item.source === 'openai' ? 'success' : 'secondary'}
+                        bg={item.source === 'gemini' ? 'primary' : item.source === 'openai' ? 'success' : 'secondary'}
                         style={{ position: 'absolute', top: 6, right: 8, fontSize: '10px' }}
                       >
-                        {item.source === 'openai' ? 'AI Pro' : 'AI'}
+                        {item.source === 'gemini' ? 'Gemini' : item.source === 'openai' ? 'AI Pro' : 'AI'}
                       </Badge>
                     )}
                   </div>

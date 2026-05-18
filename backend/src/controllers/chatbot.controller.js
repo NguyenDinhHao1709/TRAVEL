@@ -1,13 +1,13 @@
 const aiService = require('../services/ai-assistant.service');
 
 exports.askBot = async (req, res) => {
-  const { message } = req.body;
+  const { message, history } = req.body;
 
   if (!message || !String(message).trim()) {
     return res.status(400).json({ message: 'Vui lòng nhập câu hỏi' });
   }
 
-  const result = await aiService.ask(String(message).trim());
+  const result = await aiService.ask(String(message).trim(), history);
 
   if (typeof result === 'string') {
     return res.json({ reply: result, tours: [], suggestions: [] });
