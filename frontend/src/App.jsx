@@ -13,6 +13,9 @@ import ArticlesPage from './pages/customer/ArticlesPage';
 import ArticleDetailPage from './pages/customer/ArticleDetailPage';
 import TourDetailPage from './pages/customer/TourDetailPage';
 import MyBookingsPage from './pages/customer/MyBookingsPage';
+import MyPaymentsPage from './pages/customer/MyPaymentsPage';
+import CustomerDashboardPage from './pages/customer/CustomerDashboardPage';
+import PaymentPage from './pages/customer/PaymentPage';
 import WishlistPage from './pages/customer/WishlistPage';
 import ChatbotPage from './pages/customer/ChatbotPage';
 import PaymentReturnPage from './pages/customer/PaymentReturnPage';
@@ -65,6 +68,30 @@ const App = () => {
             element={
               <ProtectedRoute roles={['user']}>
                 <MyBookingsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/payment/:bookingId"
+            element={
+              <ProtectedRoute roles={['user']}>
+                <PaymentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-payments"
+            element={
+              <ProtectedRoute roles={['user']}>
+                <MyPaymentsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer-dashboard"
+            element={
+              <ProtectedRoute roles={['user']}>
+                <CustomerDashboardPage />
               </ProtectedRoute>
             }
           />

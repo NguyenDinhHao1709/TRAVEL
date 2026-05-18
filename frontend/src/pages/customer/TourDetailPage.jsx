@@ -222,8 +222,8 @@ const TourDetailPage = () => {
     }
 
     try {
-      await client.post('/bookings', { tourId: Number(id), ...booking });
-      navigate('/my-bookings');
+      const { data } = await client.post('/bookings', { tourId: Number(id), ...booking });
+      navigate(`/payment/${data.id}`);
     } catch (error) {
       setMessage(error.response?.data?.message || 'Đặt tour thất bại');
     }

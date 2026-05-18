@@ -238,7 +238,7 @@ const TourManagementPage = () => {
 
   return (
     <>
-      {/* Đã xóa tiêu đề "Quản trị" dưới menu */}
+      
       {message && <Alert variant="info" dismissible onClose={() => setMessage('')}>{message}</Alert>}
 
       {!isFormOpen ? (

@@ -57,6 +57,9 @@ const AppNavbar = () => {
             <Nav className="me-auto app-main-nav">
               <Nav.Link as={Link} to="/">Danh sách tour</Nav.Link>
               {(!user || user.role === 'user') && <Nav.Link as={Link} to="/articles">Bài viết</Nav.Link>}
+              {(!user || user.role === 'user') && <Nav.Link as={Link} to="/chatbot">Trợ lý AI</Nav.Link>}
+              {user?.role === 'user' && <Nav.Link as={Link} to="/my-bookings">Lịch sử đặt tour</Nav.Link>}
+              {user?.role === 'user' && <Nav.Link as={Link} to="/my-payments">Thanh toán</Nav.Link>}
               {(!user || user.role === 'user') && (
                 <NavDropdown title="Giới thiệu" id="intro-dropdown">
                   <NavDropdown.Item as={Link} to="/about">Về chúng tôi</NavDropdown.Item>
@@ -68,7 +71,6 @@ const AppNavbar = () => {
                   <NavDropdown.Item as={Link} to="/cau-hoi-thuong-gap">Câu hỏi thường gặp</NavDropdown.Item>
                 </NavDropdown>
               )}
-              {(!user || user.role === 'user') && <Nav.Link as={Link} to="/chatbot">Trợ lý AI</Nav.Link>}
               {!user && <Nav.Link as={Link} to="/contact">Liên hệ</Nav.Link>}
               {user?.role === 'user' && <Nav.Link as={Link} to="/contact">Liên hệ</Nav.Link>}
               {(user?.role === 'staff' || user?.role === 'admin') && <Nav.Link as={Link} to="/staff">Nhân viên</Nav.Link>}
@@ -87,7 +89,6 @@ const AppNavbar = () => {
                 >
                   {user.role === 'user' && (
                     <>
-                      <NavDropdown.Item as={Link} to="/my-bookings">🎒 Đặt tour của tôi</NavDropdown.Item>
                       <NavDropdown.Item as={Link} to="/wishlist">❤️ Danh sách yêu thích</NavDropdown.Item>
                       <NavDropdown.Divider />
                     </>

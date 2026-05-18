@@ -24,7 +24,7 @@ const STEPS = [
     num: '04',
     icon: '📝',
     title: 'Điền thông tin đặt tour',
-    desc: 'Chọn ngày khởi hành, số lượng người lớn và trẻ em. Kiểm tra lại thông tin cá nhân và yêu cầu đặc biệt (nếu có) trước khi xác nhận.',
+    desc: 'Chọn ngày khởi hành, số lượng người . Kiểm tra lại thông tin cá nhân và yêu cầu đặc biệt (nếu có) trước khi xác nhận.',
   },
   {
     num: '05',
