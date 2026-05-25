@@ -132,7 +132,7 @@ exports.lockUser = async (req, res) => {
   if (existing[0].role === 'admin') return res.status(400).json({ message: 'Không thể khóa tài khoản admin' });
 
   await pool.execute('UPDATE users SET is_locked = 1, updated_at = NOW() WHERE id = ?', [userId]);
-  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)', [
+  pool.execute('INSERT INTO system_logs (user_id, role, action, action_detail) VALUES (?, ?, ?, ?)', [
     req.user.id, req.user.role, 'Khóa tài khoản', `Khóa tài khoản user ID ${userId}`
   ]).catch(() => {});
   res.json({ message: 'Đã khóa tài khoản' });
@@ -147,7 +147,7 @@ exports.unlockUser = async (req, res) => {
   try {
   const { userId } = req.params;
   await pool.execute('UPDATE users SET is_locked = 0, updated_at = NOW() WHERE id = ?', [userId]);
-  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)', [
+  pool.execute('INSERT INTO system_logs (user_id, role, action, action_detail) VALUES (?, ?, ?, ?)', [
     req.user.id, req.user.role, 'Mở khóa tài khoản', `Mở khóa tài khoản user ID ${userId}`
   ]).catch(() => {});
   res.json({ message: 'Đã mở khóa tài khoản' });
@@ -166,7 +166,7 @@ exports.deleteUser = async (req, res) => {
   if (existing[0].role === 'admin') return res.status(400).json({ message: 'Không thể xóa tài khoản admin' });
 
   await pool.execute('DELETE FROM users WHERE id = ?', [userId]);
-  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)', [
+  pool.execute('INSERT INTO system_logs (user_id, role, action, action_detail) VALUES (?, ?, ?, ?)', [
     req.user.id, req.user.role, 'Xóa tài khoản', `Xóa vĩnh viễn user ID ${userId}`
   ]).catch(() => {});
   res.json({ message: 'Đã xóa tài khoản' });
@@ -231,10 +231,10 @@ exports.getLogs = async (req, res) => {
   if (action) { where += ' AND l.action LIKE ?'; params.push(`%${action}%`); }
 
   const [[{ total }]] = await pool.execute(
-    `SELECT COUNT(*) as total FROM activity_logs l LEFT JOIN users u ON u.id = l.user_id ${where}`, params
+    `SELECT COUNT(*) as total FROM system_logs l LEFT JOIN users u ON u.id = l.user_id ${where}`, params
   );
   const [data] = await pool.execute(
-    `SELECT l.*, u.full_name as user_name FROM activity_logs l LEFT JOIN users u ON u.id = l.user_id ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT l.*, u.full_name as user_name FROM system_logs l LEFT JOIN users u ON u.id = l.user_id ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
     [...params, Number(limit), offset]
   );
 

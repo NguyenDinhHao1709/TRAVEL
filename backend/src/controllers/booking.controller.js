@@ -184,7 +184,7 @@ exports.staffCancelBooking = async (req, res) => {
   await pool.execute('UPDATE tours SET slots = slots + ? WHERE id = ?', [booking.people_count, booking.tour_id]);
 
   // Log
-  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
+  pool.execute('INSERT INTO system_logs (user_id, role, action, action_detail) VALUES (?, ?, ?, ?)',
     [staffId, req.user.role, 'Hủy booking', `Hủy & hoàn vé booking ID: ${id}`]).catch(() => {});
 
   res.json({ message: 'Đã xử lý hoàn vé' });
@@ -228,7 +228,7 @@ exports.updateBooking = async (req, res) => {
 
   // Log
   const action = bookingStatus === 'confirmed' ? 'Xác nhận booking' : 'Cập nhật booking';
-  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
+  pool.execute('INSERT INTO system_logs (user_id, role, action, action_detail) VALUES (?, ?, ?, ?)',
     [req.user.id, req.user.role, action, `${action} ID: ${id} (status: ${bookingStatus || 'unchanged'}, payment: ${paymentStatus || 'unchanged'})`]).catch(() => {});
 };
 

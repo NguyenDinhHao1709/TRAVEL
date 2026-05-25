@@ -43,6 +43,6 @@ exports.markContactAsRead = async (req, res) => {
   res.json({ message: 'Đã đánh dấu đã đọc' });
 
   // Log
-  pool.execute('INSERT INTO activity_logs (user_id, role, action, details) VALUES (?, ?, ?, ?)',
+  pool.execute('INSERT INTO system_logs (user_id, role, action, action_detail) VALUES (?, ?, ?, ?)',
     [req.user.id, req.user.role, 'Đọc liên hệ', `Đánh dấu đã đọc liên hệ ID: ${id}`]).catch(() => {});
 };

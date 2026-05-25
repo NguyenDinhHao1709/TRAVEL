@@ -28,8 +28,8 @@ exports.getAllTours = async (req, res) => {
     query += ' AND status = ?';
     params.push(status);
   } else if (!all || all === 'false') {
-    // Nếu không phải all=true thì chỉ trả về tour đang mở bán (open) hoặc sắp hết chỗ (almost_full) cho khách hàng
-    query += " AND (status = 'open' OR status = 'almost_full')";
+    // Nếu không phải all=true thì chỉ trả về tour đang mở bán (open) hoặc sắp hết chỗ (almost-full) cho khách hàng
+    query += " AND (status = 'open' OR status = 'almost-full')";
   }
   if (transport) { query += ' AND transport = ?'; params.push(transport); }
 
