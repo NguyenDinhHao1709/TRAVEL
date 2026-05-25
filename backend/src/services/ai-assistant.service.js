@@ -836,12 +836,14 @@ module.exports = {
     let systemSnapshot = { totalTours: 0, upcomingTours: 0, openSlots: 0, totalArticles: 0, totalUsers: 0, totalBookings: 0, totalReviews: 0, totalWishlists: 0, totalContacts: 0 };
 
     try {
-      [tours, systemSnapshot] = await Promise.all([
-        getRelevantTours(message),
-        getSystemSnapshot()
-      ]);
+      tours = await getRelevantTours(message);
     } catch (dbErr) {
-      console.error('[AI] DB error:', dbErr.message);
+      console.error('[AI] DB error (tours):', dbErr.message);
+    }
+    try {
+      systemSnapshot = await getSystemSnapshot();
+    } catch (dbErr) {
+      console.error('[AI] DB error (snapshot):', dbErr.message);
     }
 
     if (getGeminiApiKey()) {
