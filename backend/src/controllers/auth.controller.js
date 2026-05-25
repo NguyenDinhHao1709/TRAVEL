@@ -5,6 +5,7 @@ const otpService = require('../services/register-otp.service');
 const emailService = require('../services/email.service');
 
 exports.login = async (req, res) => {
+  try {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -44,9 +45,14 @@ exports.login = async (req, res) => {
       mustChangePassword: !!user.must_change_password
     }
   });
+  } catch (err) {
+    console.error('[Auth] login error:', err);
+    res.status(500).json({ message: 'Lỗi đăng nhập, vui lòng thử lại' });
+  }
 };
 
 exports.requestRegisterOtp = async (req, res) => {
+  try {
   const { fullName, email, password } = req.body;
 
   if (!fullName || !email || !password) {
@@ -89,9 +95,14 @@ exports.requestRegisterOtp = async (req, res) => {
      <p>Mã có hiệu lực trong <strong>5 phút</strong>.</p>
      <p>Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email này.</p>`
   ).catch(e => console.error('[Auth] Gửi OTP email lỗi:', e.message));
+  } catch (err) {
+    console.error('[Auth] requestRegisterOtp error:', err);
+    res.status(500).json({ message: 'Lỗi xử lý yêu cầu, vui lòng thử lại' });
+  }
 };
 
 exports.register = async (req, res) => {
+  try {
   const { registerToken, otpCode } = req.body;
 
   if (!registerToken || !otpCode) {
@@ -132,9 +143,14 @@ exports.register = async (req, res) => {
     refreshToken,
     user: { id: result.insertId, fullName: session.fullName, email: session.email, role: 'user', mustChangePassword: false }
   });
+  } catch (err) {
+    console.error('[Auth] register error:', err);
+    res.status(500).json({ message: 'Lỗi đăng ký tài khoản, vui lòng thử lại' });
+  }
 };
 
 exports.requestForgotPasswordOtp = async (req, res) => {
+  try {
   const { email } = req.body;
   if (!email) {
     return res.status(400).json({ message: 'Vui lòng nhập email' });
@@ -163,9 +179,14 @@ exports.requestForgotPasswordOtp = async (req, res) => {
     `<p>Mã OTP đặt lại mật khẩu của bạn là: <strong style="font-size:24px;letter-spacing:4px">${otp}</strong></p>
      <p>Mã có hiệu lực trong <strong>5 phút</strong>.</p>`
   ).catch(e => console.error('[Auth] Gửi OTP email lỗi:', e.message));
+  } catch (err) {
+    console.error('[Auth] requestForgotPasswordOtp error:', err);
+    res.status(500).json({ message: 'Lỗi xử lý yêu cầu, vui lòng thử lại' });
+  }
 };
 
 exports.resetForgotPassword = async (req, res) => {
+  try {
   const { resetToken, otpCode, newPassword } = req.body;
 
   if (!resetToken || !otpCode || !newPassword) {
@@ -188,9 +209,14 @@ exports.resetForgotPassword = async (req, res) => {
   );
 
   res.json({ message: 'Đặt lại mật khẩu thành công' });
+  } catch (err) {
+    console.error('[Auth] resetForgotPassword error:', err);
+    res.status(500).json({ message: 'Lỗi đặt lại mật khẩu, vui lòng thử lại' });
+  }
 };
 
 exports.changePassword = async (req, res) => {
+  try {
   const { currentPassword, newPassword } = req.body;
   const userId = req.user.id;
 
@@ -219,6 +245,10 @@ exports.changePassword = async (req, res) => {
   );
 
   res.json({ message: 'Đổi mật khẩu thành công' });
+  } catch (err) {
+    console.error('[Auth] changePassword error:', err);
+    res.status(500).json({ message: 'Lỗi đổi mật khẩu, vui lòng thử lại' });
+  }
 };
 
 exports.refreshToken = async (req, res) => {
