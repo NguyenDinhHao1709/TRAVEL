@@ -214,12 +214,11 @@ exports.resetUserPassword = async (req, res) => {
   const hash = await bcrypt.hash(tempPassword, 10);
   await pool.execute('UPDATE users SET password = ?, must_change_password = 1, updated_at = NOW() WHERE id = ?', [hash, userId]);
 
-  let emailSent = false;
-  try {
-    await emailService.sendMail(
-      user.email,
-      'Mật khẩu tạm thời - HK2 Travel',
-      `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden">
+  // Gửi email nền (không chờ đợi — tránh timeout request)
+  emailService.sendMail(
+    user.email,
+    'Mật khẩu tạm thời - HK2 Travel',
+    `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden">
         <div style="background:#0d6efd;padding:20px 24px">
           <h2 style="color:#fff;margin:0">HK2 Travel</h2>
         </div>
@@ -234,17 +233,10 @@ exports.resetUserPassword = async (req, res) => {
           <p style="color:#888;font-size:13px">Nếu bạn không yêu cầu thay đổi này, hãy liên hệ quản trị viên ngay.</p>
         </div>
       </div>`
-    );
-    emailSent = true;
-  } catch (e) {
-    console.error('[Admin] Reset password email error:', e.message);
-  }
+  ).then(() => console.log(`[Admin] Reset password email sent to ${user.email}`))
+   .catch(e => console.error('[Admin] Reset password email error:', e.message));
 
-  const msg = emailSent
-    ? `Đã reset mật khẩu và gửi mật khẩu tạm về ${user.email}`
-    : `Đã reset mật khẩu. Mật khẩu tạm: ${tempPassword} (Gửi email thất bại)`;
-
-  res.json({ message: msg, tempPassword: emailSent ? undefined : tempPassword });
+  res.json({ message: `Đã reset mật khẩu và gửi email về ${user.email}`, tempPassword: undefined });
   } catch (err) {
     console.error('[Admin] resetUserPassword error:', err);
     res.status(500).json({ message: 'Không thể reset mật khẩu' });
