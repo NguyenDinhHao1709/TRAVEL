@@ -16,25 +16,30 @@ exports.sendContactMessage = async (req, res) => {
 };
 
 exports.getContactMessages = async (req, res) => {
-  const { page = 1, limit = 10, search, is_read, email } = req.query;
-  const offset = (Number(page) - 1) * Number(limit);
+  try {
+    const { page = 1, limit = 10, search, is_read, email } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
 
-  let where = 'WHERE 1=1';
-  const params = [];
+    let where = 'WHERE 1=1';
+    const params = [];
 
-  if (search) { where += ' AND (full_name LIKE ? OR message LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
-  if (is_read !== undefined && is_read !== '') { where += ' AND is_read = ?'; params.push(Number(is_read)); }
-  if (email) { where += ' AND email LIKE ?'; params.push(`%${email}%`); }
+    if (search) { where += ' AND (full_name LIKE ? OR message LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
+    if (is_read !== undefined && is_read !== '') { where += ' AND is_read = ?'; params.push(Number(is_read)); }
+    if (email) { where += ' AND email LIKE ?'; params.push(`%${email}%`); }
 
-  const [[{ total }]] = await pool.execute(`SELECT COUNT(*) as total FROM contact_messages ${where}`, params);
-  const [[{ unreadCount }]] = await pool.execute('SELECT COUNT(*) as unreadCount FROM contact_messages WHERE is_read = 0');
+    const [[{ total }]] = await pool.execute(`SELECT COUNT(*) as total FROM contact_messages ${where}`, params);
+    const [[{ unreadCount }]] = await pool.execute('SELECT COUNT(*) as unreadCount FROM contact_messages WHERE is_read = 0');
 
-  const [items] = await pool.execute(
-    `SELECT * FROM contact_messages ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-    [...params, Number(limit), offset]
-  );
+    const [items] = await pool.execute(
+      `SELECT * FROM contact_messages ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      [...params, Number(limit), offset]
+    );
 
-  res.json({ items, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)), unreadCount });
+    res.json({ items, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)), unreadCount });
+  } catch (err) {
+    console.error('[Contact] getContactMessages error:', err);
+    res.status(500).json({ message: 'Lỗi tải tin nhắn liên hệ' });
+  }
 };
 
 exports.markContactAsRead = async (req, res) => {

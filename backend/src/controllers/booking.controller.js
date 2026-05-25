@@ -15,52 +15,72 @@ async function cancelExpiredBookings(userId) {
 }
 
 exports.getMyBookings = async (req, res) => {
-  const userId = req.user.id;
-  await cancelExpiredBookings(userId);
+  try {
+    const userId = req.user.id;
+    await cancelExpiredBookings(userId).catch(() => {}); // non-fatal
 
-  const [rows] = await pool.execute(`
-    SELECT b.*, t.title, t.start_date, t.end_date, t.destination, t.image_url
-    FROM bookings b
-    LEFT JOIN tours t ON t.id = b.tour_id
-    WHERE b.user_id = ?
-    ORDER BY b.created_at DESC
-  `, [userId]);
+    const [rows] = await pool.execute(`
+      SELECT b.*, t.title, t.start_date, t.end_date, t.destination, t.image_url
+      FROM bookings b
+      LEFT JOIN tours t ON t.id = b.tour_id
+      WHERE b.user_id = ?
+      ORDER BY b.created_at DESC
+    `, [userId]);
 
-  res.json(rows);
+    res.json(rows);
+  } catch (err) {
+    console.error('[Booking] getMyBookings error:', err);
+    res.status(500).json({ message: 'Lỗi tải danh sách đặt tour' });
+  }
 };
 
 exports.getAllBookings = async (req, res) => {
-  const [rows] = await pool.execute(`
-    SELECT b.*, t.title, u.full_name
-    FROM bookings b
-    LEFT JOIN tours t ON t.id = b.tour_id
-    LEFT JOIN users u ON u.id = b.user_id
-    ORDER BY b.created_at DESC
-  `);
-  res.json(rows);
+  try {
+    const [rows] = await pool.execute(`
+      SELECT b.*, t.title, u.full_name
+      FROM bookings b
+      LEFT JOIN tours t ON t.id = b.tour_id
+      LEFT JOIN users u ON u.id = b.user_id
+      ORDER BY b.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('[Booking] getAllBookings error:', err);
+    res.status(500).json({ message: 'Lỗi tải danh sách đặt tour' });
+  }
 };
 
 exports.getStaffBookings = async (req, res) => {
-  const [rows] = await pool.execute(`
-    SELECT b.*, t.title, t.start_date, t.end_date, u.full_name, u.email
-    FROM bookings b
-    LEFT JOIN tours t ON t.id = b.tour_id
-    LEFT JOIN users u ON u.id = b.user_id
-    ORDER BY b.created_at DESC
-  `);
-  res.json(rows);
+  try {
+    const [rows] = await pool.execute(`
+      SELECT b.*, t.title, t.start_date, t.end_date, u.full_name, u.email
+      FROM bookings b
+      LEFT JOIN tours t ON t.id = b.tour_id
+      LEFT JOIN users u ON u.id = b.user_id
+      ORDER BY b.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('[Booking] getStaffBookings error:', err);
+    res.status(500).json({ message: 'Lỗi tải danh sách đặt tour' });
+  }
 };
 
 exports.getBookingById = async (req, res) => {
-  const { id } = req.params;
-  const [rows] = await pool.execute(`
-    SELECT b.*, t.title, t.start_date, t.end_date
-    FROM bookings b
-    LEFT JOIN tours t ON t.id = b.tour_id
-    WHERE b.id = ? LIMIT 1
-  `, [id]);
-  if (rows.length === 0) return res.status(404).json({ message: 'Không tìm thấy booking' });
-  res.json(rows[0]);
+  try {
+    const { id } = req.params;
+    const [rows] = await pool.execute(`
+      SELECT b.*, t.title, t.start_date, t.end_date
+      FROM bookings b
+      LEFT JOIN tours t ON t.id = b.tour_id
+      WHERE b.id = ? LIMIT 1
+    `, [id]);
+    if (rows.length === 0) return res.status(404).json({ message: 'Không tìm thấy booking' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('[Booking] getBookingById error:', err);
+    res.status(500).json({ message: 'Lỗi tải thông tin đặt tour' });
+  }
 };
 
 exports.createBooking = async (req, res) => {

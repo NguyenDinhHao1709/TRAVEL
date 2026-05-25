@@ -80,14 +80,17 @@ const StaffDashboardPage = () => {
 
   const load = async () => {
     try {
-      const [bookingRes, customerRes, contactRes] = await Promise.all([
+      const [bookingRes, customerRes, contactRes] = await Promise.allSettled([
         client.get('/bookings/staff/all'),
         client.get('/staff/customers'),
         client.get('/contact/messages')
       ]);
-      setBookings(bookingRes.data || []);
-      setCustomers(customerRes.data || []);
-      setContactInbox(contactRes.data || { unreadCount: 0, items: [] });
+      if (bookingRes.status === 'fulfilled') setBookings(bookingRes.value.data || []);
+      else console.error('Lỗi tải bookings:', bookingRes.reason);
+      if (customerRes.status === 'fulfilled') setCustomers(customerRes.value.data || []);
+      else console.error('Lỗi tải customers:', customerRes.reason);
+      if (contactRes.status === 'fulfilled') setContactInbox(contactRes.value.data || { unreadCount: 0, items: [] });
+      else console.error('Lỗi tải contacts:', contactRes.reason);
     } catch (error) {
       console.error('Lỗi tải dữ liệu staff:', error);
     }

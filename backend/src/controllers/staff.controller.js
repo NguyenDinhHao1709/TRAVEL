@@ -2,26 +2,41 @@ const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 
 exports.getCustomers = async (req, res) => {
-  const [rows] = await pool.execute(
-    "SELECT id, full_name, email, phone, created_at FROM users WHERE role = 'user' ORDER BY created_at DESC"
-  );
-  res.json(rows);
+  try {
+    const [rows] = await pool.execute(
+      "SELECT id, full_name, email, phone, created_at FROM users WHERE role = 'user' ORDER BY created_at DESC"
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('[Staff] getCustomers error:', err);
+    res.status(500).json({ message: 'Lỗi tải danh sách khách hàng' });
+  }
 };
 
 exports.getAllStaff = async (req, res) => {
-  const [rows] = await pool.execute(
-    "SELECT id, full_name, email, created_at FROM users WHERE role = 'staff' ORDER BY created_at DESC"
-  );
-  res.json(rows);
+  try {
+    const [rows] = await pool.execute(
+      "SELECT id, full_name, email, created_at FROM users WHERE role = 'staff' ORDER BY created_at DESC"
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('[Staff] getAllStaff error:', err);
+    res.status(500).json({ message: 'Lỗi tải danh sách nhân viên' });
+  }
 };
 
 exports.getStaffById = async (req, res) => {
-  const [rows] = await pool.execute(
-    "SELECT id, full_name, email, created_at FROM users WHERE id = ? AND role = 'staff' LIMIT 1",
-    [req.params.id]
-  );
-  if (rows.length === 0) return res.status(404).json({ message: 'Không tìm thấy nhân viên' });
-  res.json(rows[0]);
+  try {
+    const [rows] = await pool.execute(
+      "SELECT id, full_name, email, created_at FROM users WHERE id = ? AND role = 'staff' LIMIT 1",
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ message: 'Không tìm thấy nhân viên' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('[Staff] getStaffById error:', err);
+    res.status(500).json({ message: 'Lỗi tải thông tin nhân viên' });
+  }
 };
 
 exports.createStaff = async (req, res) => {

@@ -2,46 +2,61 @@ const logService = require('../services/log.service');
 const pool = require('../config/db');
 
 exports.getAllReviews = async (req, res) => {
-  const { tourId } = req.query;
-  if (!tourId) return res.json([]);
+  try {
+    const { tourId } = req.query;
+    if (!tourId) return res.json([]);
 
-  const [rows] = await pool.execute(`
-    SELECT r.*, u.full_name as user_name
-    FROM reviews r LEFT JOIN users u ON u.id = r.user_id
-    WHERE r.tour_id = ? AND r.status = 'approved'
-    ORDER BY r.created_at DESC
-  `, [tourId]);
-  res.json(rows);
+    const [rows] = await pool.execute(`
+      SELECT r.*, u.full_name as user_name
+      FROM reviews r LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.tour_id = ? AND r.status = 'approved'
+      ORDER BY r.created_at DESC
+    `, [tourId]);
+    res.json(rows);
+  } catch (err) {
+    console.error('[Review] getAllReviews error:', err);
+    res.status(500).json({ message: 'Lỗi tải đánh giá' });
+  }
 };
 
 exports.getAdminAllReviews = async (req, res) => {
-  const { page = 1, limit = 10, search, status, rating } = req.query;
-  const offset = (Number(page) - 1) * Number(limit);
+  try {
+    const { page = 1, limit = 10, search, status, rating } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
 
-  let where = 'WHERE 1=1';
-  const params = [];
+    let where = 'WHERE 1=1';
+    const params = [];
 
-  if (search) { where += ' AND (r.comment LIKE ? OR u.full_name LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
-  if (status) { where += ' AND r.status = ?'; params.push(status); }
-  if (rating) { where += ' AND r.rating = ?'; params.push(Number(rating)); }
+    if (search) { where += ' AND (r.comment LIKE ? OR u.full_name LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
+    if (status) { where += ' AND r.status = ?'; params.push(status); }
+    if (rating) { where += ' AND r.rating = ?'; params.push(Number(rating)); }
 
-  const [[{ total }]] = await pool.execute(`SELECT COUNT(*) as total FROM reviews r LEFT JOIN users u ON u.id = r.user_id ${where}`, params);
-  const [rows] = await pool.execute(
-    `SELECT r.*, u.full_name as user_name, t.title as tour_title FROM reviews r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN tours t ON t.id = r.tour_id ${where} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`,
-    [...params, Number(limit), offset]
-  );
+    const [[{ total }]] = await pool.execute(`SELECT COUNT(*) as total FROM reviews r LEFT JOIN users u ON u.id = r.user_id ${where}`, params);
+    const [rows] = await pool.execute(
+      `SELECT r.*, u.full_name as user_name, t.title as tour_title FROM reviews r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN tours t ON t.id = r.tour_id ${where} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`,
+      [...params, Number(limit), offset]
+    );
 
-  res.json({ data: rows, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+    res.json({ data: rows, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+  } catch (err) {
+    console.error('[Review] getAdminAllReviews error:', err);
+    res.status(500).json({ message: 'Lỗi tải danh sách đánh giá' });
+  }
 };
 
 exports.getStaffAllReviews = async (req, res) => {
-  const [rows] = await pool.execute(`
-    SELECT r.*, u.full_name as user_name, t.title as tour_title
-    FROM reviews r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN tours t ON t.id = r.tour_id
-    WHERE r.status = 'approved'
-    ORDER BY r.created_at DESC LIMIT 100
-  `);
-  res.json(rows);
+  try {
+    const [rows] = await pool.execute(`
+      SELECT r.*, u.full_name as user_name, t.title as tour_title
+      FROM reviews r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN tours t ON t.id = r.tour_id
+      WHERE r.status = 'approved'
+      ORDER BY r.created_at DESC LIMIT 100
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('[Review] getStaffAllReviews error:', err);
+    res.status(500).json({ message: 'Lỗi tải đánh giá' });
+  }
 };
 
 exports.getReviewById = async (req, res) => {

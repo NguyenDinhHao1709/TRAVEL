@@ -1,67 +1,83 @@
-// Lấy log hệ thống (system_logs)
-exports.getSystemLogs = async (req, res) => {
-  const { page = 1, limit = 10, search, role, action, since } = req.query;
-  const offset = (Number(page) - 1) * Number(limit);
-
-  let where = 'WHERE 1=1';
-  const params = [];
-  if (search) {
-    where += ' AND (action LIKE ? OR action_detail LIKE ? OR details LIKE ?)';
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-  }
-  if (role) { where += ' AND role = ?'; params.push(role); }
-  if (action) { where += ' AND action LIKE ?'; params.push(`%${action}%`); }
-  if (since) { where += ' AND created_at >= ?'; params.push(since); }
-
-  const [[{ total }]] = await pool.execute(
-    `SELECT COUNT(*) as total FROM system_logs ${where}`, params
-  );
-  const [data] = await pool.execute(
-    `SELECT l.*, u.full_name as user_name, u.email as user_email
-     FROM system_logs l
-     LEFT JOIN users u ON u.id = l.user_id
-     ${where}
-     ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
-    [...params, Number(limit), offset]
-  );
-  res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
-};
 const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const emailService = require('../services/email.service');
 
+// Lấy log hệ thống (system_logs)
+exports.getSystemLogs = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search, role, action, since } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    let where = 'WHERE 1=1';
+    const params = [];
+    if (search) {
+      where += ' AND (action LIKE ? OR action_detail LIKE ? OR details LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+    if (role) { where += ' AND role = ?'; params.push(role); }
+    if (action) { where += ' AND action LIKE ?'; params.push(`%${action}%`); }
+    if (since) { where += ' AND created_at >= ?'; params.push(since); }
+
+    const [[{ total }]] = await pool.execute(
+      `SELECT COUNT(*) as total FROM system_logs ${where}`, params
+    );
+    const [data] = await pool.execute(
+      `SELECT l.*, u.full_name as user_name, u.email as user_email
+       FROM system_logs l
+       LEFT JOIN users u ON u.id = l.user_id
+       ${where}
+       ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
+      [...params, Number(limit), offset]
+    );
+    res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+  } catch (err) {
+    console.error('[Admin] getSystemLogs error:', err);
+    res.status(500).json({ message: 'Lỗi tải nhật ký hệ thống' });
+  }
+};
+
 // Dashboard stats
 exports.getDashboardStats = async (req, res) => {
-  const [[{ totalUsers }]] = await pool.execute("SELECT COUNT(*) as totalUsers FROM users WHERE role = 'user'");
-  const [[{ totalTours }]] = await pool.execute('SELECT COUNT(*) as totalTours FROM tours');
-  const [[{ totalBookings }]] = await pool.execute("SELECT COUNT(*) as totalBookings FROM bookings WHERE booking_status != 'cancelled'");
-  const [[{ totalRevenue }]] = await pool.execute("SELECT COALESCE(SUM(total_amount), 0) as totalRevenue FROM bookings WHERE payment_status = 'paid'");
-  const [[{ unreadContacts }]] = await pool.execute('SELECT COUNT(*) as unreadContacts FROM contact_messages WHERE is_read = 0');
+  try {
+    const [[{ totalUsers }]] = await pool.execute("SELECT COUNT(*) as totalUsers FROM users WHERE role = 'user'");
+    const [[{ totalTours }]] = await pool.execute('SELECT COUNT(*) as totalTours FROM tours');
+    const [[{ totalBookings }]] = await pool.execute("SELECT COUNT(*) as totalBookings FROM bookings WHERE booking_status != 'cancelled'");
+    const [[{ totalRevenue }]] = await pool.execute("SELECT COALESCE(SUM(total_amount), 0) as totalRevenue FROM bookings WHERE payment_status = 'paid'");
+    const [[{ unreadContacts }]] = await pool.execute('SELECT COUNT(*) as unreadContacts FROM contact_messages WHERE is_read = 0');
 
-  res.json({ totalUsers, totalTours, totalBookings, totalRevenue, unreadContacts });
+    res.json({ totalUsers, totalTours, totalBookings, totalRevenue, unreadContacts });
+  } catch (err) {
+    console.error('[Admin] getDashboardStats error:', err);
+    res.status(500).json({ message: 'Lỗi tải thống kê' });
+  }
 };
 
 // Users list (paginated)
 exports.getUsers = async (req, res) => {
-  const { page = 1, limit = 10, search, role, status } = req.query;
-  const offset = (Number(page) - 1) * Number(limit);
+  try {
+    const { page = 1, limit = 10, search, role, status } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
 
-  let where = "WHERE role != 'admin'";
-  const params = [];
+    let where = "WHERE role != 'admin'";
+    const params = [];
 
-  if (search) { where += ' AND (full_name LIKE ? OR email LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
-  if (role) { where += ' AND role = ?'; params.push(role); }
-  if (status === 'locked') { where += ' AND is_locked = 1'; }
-  else if (status === 'active') { where += ' AND is_locked = 0'; }
+    if (search) { where += ' AND (full_name LIKE ? OR email LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
+    if (role) { where += ' AND role = ?'; params.push(role); }
+    if (status === 'locked') { where += ' AND is_locked = 1'; }
+    else if (status === 'active') { where += ' AND is_locked = 0'; }
 
-  const [[{ total }]] = await pool.execute(`SELECT COUNT(*) as total FROM users ${where}`, params);
-  const [data] = await pool.execute(
-    `SELECT id, full_name, email, role, phone, is_locked, must_change_password, created_at FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-    [...params, Number(limit), offset]
-  );
+    const [[{ total }]] = await pool.execute(`SELECT COUNT(*) as total FROM users ${where}`, params);
+    const [data] = await pool.execute(
+      `SELECT id, full_name, email, role, phone, is_locked, must_change_password, created_at FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      [...params, Number(limit), offset]
+    );
 
-  res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+    res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+  } catch (err) {
+    console.error('[Admin] getUsers error:', err);
+    res.status(500).json({ message: 'Lỗi tải danh sách người dùng' });
+  }
 };
 
 // User detail + bookings
@@ -220,69 +236,79 @@ exports.resetUserPassword = async (req, res) => {
 
 // Activity logs
 exports.getLogs = async (req, res) => {
-  const { page = 1, limit = 10, search, role, action } = req.query;
-  const offset = (Number(page) - 1) * Number(limit);
+  try {
+    const { page = 1, limit = 10, search, role, action } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
 
-  let where = 'WHERE 1=1';
-  const params = [];
+    let where = 'WHERE 1=1';
+    const params = [];
 
-  if (search) { where += ' AND (l.action LIKE ? OR l.details LIKE ? OR u.full_name LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
-  if (role) { where += ' AND l.role = ?'; params.push(role); }
-  if (action) { where += ' AND l.action LIKE ?'; params.push(`%${action}%`); }
+    if (search) { where += ' AND (l.action LIKE ? OR l.details LIKE ? OR u.full_name LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+    if (role) { where += ' AND l.role = ?'; params.push(role); }
+    if (action) { where += ' AND l.action LIKE ?'; params.push(`%${action}%`); }
 
-  const [[{ total }]] = await pool.execute(
-    `SELECT COUNT(*) as total FROM system_logs l LEFT JOIN users u ON u.id = l.user_id ${where}`, params
-  );
-  const [data] = await pool.execute(
-    `SELECT l.*, u.full_name as user_name FROM system_logs l LEFT JOIN users u ON u.id = l.user_id ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
-    [...params, Number(limit), offset]
-  );
+    const [[{ total }]] = await pool.execute(
+      `SELECT COUNT(*) as total FROM system_logs l LEFT JOIN users u ON u.id = l.user_id ${where}`, params
+    );
+    const [data] = await pool.execute(
+      `SELECT l.*, u.full_name as user_name FROM system_logs l LEFT JOIN users u ON u.id = l.user_id ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
+      [...params, Number(limit), offset]
+    );
 
-  res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+    res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+  } catch (err) {
+    console.error('[Admin] getLogs error:', err);
+    res.status(500).json({ message: 'Lỗi tải nhật ký' });
+  }
 };
 
 // Bookings report
 exports.getBookingsReport = async (req, res) => {
-  const { groupBy = 'day', day, month, year } = req.query;
+  try {
+    const { groupBy = 'day', day, month, year } = req.query;
 
-  let selectExpr, whereClause = '';
-  const params = [];
-  let selected = null;
+    let selectExpr, whereClause = '';
+    const params = [];
+    let selected = null;
 
-  if (groupBy === 'day') {
-    selectExpr = "DATE_FORMAT(created_at, '%d/%m/%Y') as period";
-    if (day) { whereClause = 'WHERE DATE(created_at) = ?'; params.push(day); selected = day; }
-    else { whereClause = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)'; }
-  } else if (groupBy === 'month') {
-    selectExpr = "DATE_FORMAT(created_at, '%m/%Y') as period";
-    if (month) { whereClause = "WHERE DATE_FORMAT(created_at, '%Y-%m') = ?"; params.push(month); selected = month; }
-    else { whereClause = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)'; }
-  } else {
-    selectExpr = "YEAR(created_at) as period";
-    const targetYear = year || new Date().getFullYear();
-    whereClause = 'WHERE YEAR(created_at) = ?';
-    params.push(targetYear);
-    selected = String(targetYear);
+    if (groupBy === 'day') {
+      selectExpr = "DATE_FORMAT(created_at, '%d/%m/%Y') as period";
+      if (day) { whereClause = 'WHERE DATE(created_at) = ?'; params.push(day); selected = day; }
+      else { whereClause = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)'; }
+    } else if (groupBy === 'month') {
+      selectExpr = "DATE_FORMAT(created_at, '%m/%Y') as period";
+      if (month) { whereClause = "WHERE DATE_FORMAT(created_at, '%Y-%m') = ?"; params.push(month); selected = month; }
+      else { whereClause = 'WHERE created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)'; }
+    } else {
+      selectExpr = "YEAR(created_at) as period";
+      const targetYear = year || new Date().getFullYear();
+      whereClause = 'WHERE YEAR(created_at) = ?';
+      params.push(targetYear);
+      selected = String(targetYear);
+    }
+
+    const [rows] = await pool.execute(`
+      SELECT ${selectExpr},
+        COUNT(*) as totalBooked,
+        SUM(CASE WHEN booking_status NOT IN ('cancelled') THEN 1 ELSE 0 END) as successCount,
+        SUM(CASE WHEN booking_status = 'cancelled' THEN 1 ELSE 0 END) as cancelledCount,
+        SUM(CASE WHEN payment_status = 'paid' THEN total_amount ELSE 0 END) as revenue
+      FROM bookings
+      ${whereClause}
+      GROUP BY period
+      ORDER BY period ASC
+    `, params);
+
+    const summary = {
+      totalBooked: rows.reduce((s, r) => s + Number(r.totalBooked || 0), 0),
+      totalSuccess: rows.reduce((s, r) => s + Number(r.successCount || 0), 0),
+      totalCancelled: rows.reduce((s, r) => s + Number(r.cancelledCount || 0), 0),
+      totalRevenue: rows.reduce((s, r) => s + Number(r.revenue || 0), 0)
+    };
+
+    res.json({ summary, series: rows, groupBy, selected });
+  } catch (err) {
+    console.error('[Admin] getBookingsReport error:', err);
+    res.status(500).json({ message: 'Lỗi tải báo cáo đặt tour' });
   }
-
-  const [rows] = await pool.execute(`
-    SELECT ${selectExpr},
-      COUNT(*) as totalBooked,
-      SUM(CASE WHEN booking_status NOT IN ('cancelled') THEN 1 ELSE 0 END) as successCount,
-      SUM(CASE WHEN booking_status = 'cancelled' THEN 1 ELSE 0 END) as cancelledCount,
-      SUM(CASE WHEN payment_status = 'paid' THEN total_amount ELSE 0 END) as revenue
-    FROM bookings
-    ${whereClause}
-    GROUP BY period
-    ORDER BY period ASC
-  `, params);
-
-  const summary = {
-    totalBooked: rows.reduce((s, r) => s + Number(r.totalBooked || 0), 0),
-    totalSuccess: rows.reduce((s, r) => s + Number(r.successCount || 0), 0),
-    totalCancelled: rows.reduce((s, r) => s + Number(r.cancelledCount || 0), 0),
-    totalRevenue: rows.reduce((s, r) => s + Number(r.revenue || 0), 0)
-  };
-
-  res.json({ summary, series: rows, groupBy, selected });
 };
