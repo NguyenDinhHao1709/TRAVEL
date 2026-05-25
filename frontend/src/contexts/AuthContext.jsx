@@ -47,10 +47,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    const sessionKeys = Object.keys(sessionStorage);
-    for (const key of sessionKeys) {
-      if (key.startsWith('chatbot_session_history_')) {
-        sessionStorage.removeItem(key);
+    // Xóa lịch sử chat AI của user trong localStorage
+    const localKeys = Object.keys(localStorage);
+    for (const key of localKeys) {
+      if (key.startsWith('chatbot_history_')) {
+        localStorage.removeItem(key);
       }
     }
 

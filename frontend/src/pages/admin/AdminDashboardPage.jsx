@@ -778,7 +778,6 @@ const AdminDashboardPage = () => {
                       <th>Tour</th>
                       <th>Sao</th>
                       <th>Bình luận</th>
-                      <th>Phản hồi</th>
                       <th>Trạng thái</th>
                       <th>Thời gian</th>
                       <th>Thao tác</th>
@@ -786,7 +785,7 @@ const AdminDashboardPage = () => {
                   </thead>
                   <tbody>
                     {reviews.length === 0 && (
-                      <tr><td colSpan={9} className="text-center">Không có dữ liệu</td></tr>
+                      <tr><td colSpan={8} className="text-center">Không có dữ liệu</td></tr>
                     )}
                     {reviews.map((review) => (
                       <tr key={review.id}>
@@ -795,7 +794,6 @@ const AdminDashboardPage = () => {
                         <td>{review.tour_title || '-'}</td>
                         <td style={{ color: '#f59e0b', fontWeight: 700 }}>{renderStars(review.rating)}</td>
                         <td style={{ maxWidth: 200 }}>{review.comment || '-'}</td>
-                        <td style={{ maxWidth: 200 }}>{review.staff_reply || '-'}</td>
                         <td>
                           <Badge bg={review.status === 'approved' ? 'success' : review.status === 'rejected' ? 'danger' : 'warning'}>
                             {review.status === 'approved' ? 'Đã duyệt' : review.status === 'rejected' ? 'Từ chối' : 'Chờ duyệt'}

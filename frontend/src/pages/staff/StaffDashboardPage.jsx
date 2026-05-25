@@ -32,6 +32,12 @@ const renderStars = (value = 0) => {
   return `${'★'.repeat(safeValue)}${'☆'.repeat(5 - safeValue)}`;
 };
 
+const getChatRoleLabel = (role) => {
+  if (role === 'user') return 'Khách hàng';
+  if (role === 'admin') return 'Quản trị';
+  return 'Nhân viên';
+};
+
 const StaffDashboardPage = () => {
   const { user } = useAuth();
   const location = useLocation();
@@ -499,7 +505,7 @@ const StaffDashboardPage = () => {
                             boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
                           }}>
                             <div style={{ fontSize: '11px', fontWeight: 600, opacity: 0.7, marginBottom: '3px' }}>
-                              {msg.sender_name} {msg.sender_role !== 'user' ? '(Nhân viên)' : '(Khách hàng)'}
+                              {msg.sender_name} ({getChatRoleLabel(msg.sender_role)})
                             </div>
                             {msg.message}
                             <div style={{ fontSize: '10px', opacity: 0.6, marginTop: '4px', textAlign: 'right' }}>
@@ -612,7 +618,6 @@ const StaffDashboardPage = () => {
                       <th>Tour</th>
                       <th>Sao</th>
                       <th>Bình luận</th>
-                      <th>Phản hồi</th>
                       <th>Trạng thái</th>
                       <th>Thời gian</th>
                       <th>Thao tác</th>
@@ -620,7 +625,7 @@ const StaffDashboardPage = () => {
                   </thead>
                   <tbody>
                     {reviews.length === 0 && (
-                      <tr><td colSpan={9} className="text-center">Không có dữ liệu</td></tr>
+                      <tr><td colSpan={8} className="text-center">Không có dữ liệu</td></tr>
                     )}
                     {reviews.map((review) => (
                       <tr key={review.id}>
@@ -629,7 +634,6 @@ const StaffDashboardPage = () => {
                         <td>{review.tour_title || '-'}</td>
                         <td style={{ color: '#f59e0b', fontWeight: 700 }}>{renderStars(review.rating)}</td>
                         <td style={{ maxWidth: 200 }}>{review.comment || '-'}</td>
-                        <td style={{ maxWidth: 200 }}>{review.staff_reply || '-'}</td>
                         <td>
                           <Badge bg={review.status === 'approved' ? 'success' : review.status === 'rejected' ? 'danger' : 'warning'}>
                             {review.status === 'approved' ? 'Đã duyệt' : review.status === 'rejected' ? 'Từ chối' : 'Chờ duyệt'}

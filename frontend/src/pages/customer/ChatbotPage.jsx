@@ -6,8 +6,23 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const initialBotMessage = {
   type: 'bot',
-  text: 'Xin chào! Mình là trợ lý AI của HK2 Travel. Bạn có thể hỏi về chức năng hệ thống, quy trình đặt tour, thanh toán hoặc nhờ tư vấn tour phù hợp.',
-  suggestions: ['Hệ thống HK2 Travel hỗ trợ gì?', 'Cách đặt tour và thanh toán?', 'Gợi ý tour Đà Nẵng còn chỗ']
+  text: 'Xin chào! Mình là trợ lý AI của HK2 Travel 👋 Mình có thể tư vấn tour, giá, lịch trình, đặt tour và giải đáp mọi thắc mắc về dịch vụ.',
+  suggestions: ['Tour nào giá rẻ nhất?', 'Hướng dẫn đặt tour', 'Gợi ý tour cho gia đình']
+};
+
+const HISTORY_KEY_PREFIX = 'chatbot_history_';
+const getChatHistoryKey = (userId) => `${HISTORY_KEY_PREFIX}${userId}`;
+
+const loadHistoryFromStorage = (userId) => {
+  if (!userId) return [initialBotMessage];
+  try {
+    const raw = localStorage.getItem(getChatHistoryKey(userId));
+    if (!raw) return [initialBotMessage];
+    const items = JSON.parse(raw);
+    return Array.isArray(items) && items.length > 0 ? items : [initialBotMessage];
+  } catch {
+    return [initialBotMessage];
+  }
 };
 
 const formatMoney = (value) => Number(value || 0).toLocaleString('vi-VN');
@@ -49,45 +64,29 @@ const ChatbotPage = () => {
   const { user } = useAuth();
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [conversations, setConversations] = useState([initialBotMessage]);
+  // Khởi tạo ngay từ localStorage để tránh race condition save-before-load
+  const [conversations, setConversations] = useState(() => loadHistoryFromStorage(user?.id));
   const listRef = useRef(null);
   const inputRef = useRef(null);
-  const sessionHistoryKey = user?.id ? `chatbot_session_history_${user.id}` : null;
+  const prevUserIdRef = useRef(user?.id);
 
   useEffect(() => {
     if (!listRef.current) return;
     listRef.current.scrollTop = listRef.current.scrollHeight;
   }, [conversations, loading]);
 
+  // Khi user thay đổi (login/logout trong cùng phiên) → reload đúng history
   useEffect(() => {
-    if (!user || !sessionHistoryKey) {
-      setConversations([initialBotMessage]);
-      return;
-    }
+    if (user?.id === prevUserIdRef.current) return;
+    prevUserIdRef.current = user?.id;
+    setConversations(loadHistoryFromStorage(user?.id));
+  }, [user?.id]);
 
-    try {
-      const raw = sessionStorage.getItem(sessionHistoryKey);
-      if (!raw) {
-        setConversations([initialBotMessage]);
-        return;
-      }
-
-      const items = JSON.parse(raw);
-      if (!Array.isArray(items) || items.length === 0) {
-        setConversations([initialBotMessage]);
-        return;
-      }
-
-      setConversations(items);
-    } catch {
-      setConversations([initialBotMessage]);
-    }
-  }, [user, sessionHistoryKey]);
-
+  // Lưu vào localStorage mỗi khi conversations thay đổi
   useEffect(() => {
-    if (!user || !sessionHistoryKey) return;
-    sessionStorage.setItem(sessionHistoryKey, JSON.stringify(conversations));
-  }, [conversations, user, sessionHistoryKey]);
+    if (!user?.id) return;
+    localStorage.setItem(getChatHistoryKey(user.id), JSON.stringify(conversations));
+  }, [conversations, user?.id]);
 
   const ask = async (customText) => {
     const text = String(customText ?? message).trim();

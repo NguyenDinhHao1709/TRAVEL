@@ -7,6 +7,30 @@ import client from '../../api/client';
 const PAYMENT_TIMEOUT_SECONDS = 5 * 60;
 const POLL_INTERVAL_MS = 5000;
 
+const BIN_TO_BANK = {
+  '970422': 'MB Bank',
+  '970418': 'BIDV',
+  '970436': 'Vietcombank',
+  '970415': 'VietinBank',
+  '970405': 'Agribank',
+  '970454': 'TPBank',
+  '970423': 'Techcombank',
+  '970432': 'VPBank',
+  '970448': 'OCB',
+  '970426': 'MSB',
+  '970403': 'Sacombank',
+  '970441': 'VIB',
+  '970449': 'LPBank',
+  '970431': 'Eximbank',
+  '970443': 'SHB',
+  '970416': 'ACB',
+  '970425': 'ABBank',
+  '970438': 'BaoViet Bank',
+  '970421': 'VRB',
+  '970407': 'Techcombank',
+};
+const getBankName = (bin) => BIN_TO_BANK[String(bin)] || bin;
+
 const formatDate = (v) => {
   if (!v) return '—';
   const d = new Date(v);
@@ -47,6 +71,9 @@ export default function PaymentPage() {
   const [paid, setPaid] = useState(false);
   const [copied, setCopied] = useState('');
   const [tick, setTick] = useState(0);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   const pollRef = useRef(null);
   const tickRef = useRef(null);
@@ -112,6 +139,21 @@ export default function PaymentPage() {
       setCopied(key);
       setTimeout(() => setCopied(''), 1500);
     });
+  };
+
+  const handleCancel = async () => {
+    setCancelLoading(true);
+    setCancelError('');
+    try {
+      await client.patch(`/bookings/my/${bookingId}/cancel`);
+      clearInterval(pollRef.current);
+      setBooking((prev) => prev ? { ...prev, booking_status: 'cancelled' } : prev);
+      setCancelConfirm(false);
+    } catch (err) {
+      setCancelError(err.response?.data?.message || 'Không thể hủy. Vui lòng thử lại.');
+    } finally {
+      setCancelLoading(false);
+    }
   };
 
   if (bookingLoading) {
@@ -238,6 +280,29 @@ export default function PaymentPage() {
               <Button as={Link} to="/my-bookings" variant="outline-secondary" size="sm" className="flex-fill">
                 ← Quay lại
               </Button>
+              {!cancelConfirm ? (
+                <Button variant="outline-danger" size="sm" className="flex-fill"
+                  onClick={() => { setCancelConfirm(true); setCancelError(''); }}>
+                  Hủy thanh toán
+                </Button>
+              ) : (
+                <div className="flex-fill">
+                  <div className="border border-danger rounded p-2" style={{ fontSize: '0.82rem', background: '#fff5f5' }}>
+                    <div className="fw-semibold text-danger mb-1">Xác nhận hủy đơn #{bookingId}?</div>
+                    {cancelError && <div className="text-danger mb-1">{cancelError}</div>}
+                    <div className="d-flex gap-1">
+                      <Button size="sm" variant="danger" className="flex-fill" disabled={cancelLoading}
+                        onClick={handleCancel}>
+                        {cancelLoading ? <Spinner size="sm" animation="border" /> : 'Xác nhận hủy'}
+                      </Button>
+                      <Button size="sm" variant="outline-secondary" className="flex-fill" disabled={cancelLoading}
+                        onClick={() => { setCancelConfirm(false); setCancelError(''); }}>
+                        Không
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </Col>
 
@@ -271,11 +336,6 @@ export default function PaymentPage() {
                         </a>
                       )}
                       <p className="text-muted small mt-2 mb-1">Quét mã QR bằng app ngân hàng hoặc ví điện tử</p>
-                      {qrData.checkoutUrl && (
-                        <a href={qrData.checkoutUrl} target="_blank" rel="noreferrer" className="small">
-                          Hoặc thanh toán qua trang PayOS →
-                        </a>
-                      )}
                     </div>
 
                     {/* Bank info */}
@@ -283,7 +343,7 @@ export default function PaymentPage() {
                       <h6 className="fw-bold mb-3">Thông tin chuyển khoản</h6>
                       <Row className="g-2 align-items-center">
                         <Col xs={5} className="text-muted">Ngân hàng</Col>
-                        <Col xs={7} className="fw-semibold">{qrData.bankId}</Col>
+                        <Col xs={7} className="fw-semibold">{getBankName(qrData.bankId)}</Col>
 
                         <Col xs={5} className="text-muted">Số tài khoản</Col>
                         <Col xs={7} className="d-flex align-items-center gap-2">
