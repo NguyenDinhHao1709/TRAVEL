@@ -11,6 +11,7 @@ const renderStars = (value = 0) => {
 };
 
 const getTourImages = (tour) => {
+  if (!tour) return [];
   if (Array.isArray(tour.image_urls) && tour.image_urls.length > 0) {
     return tour.image_urls.filter(Boolean);
   }
@@ -107,15 +108,22 @@ const TourDetailPage = () => {
   };
 
   const loadTour = async () => {
-    const [{ data: tourData }, { data: articlesData }] = await Promise.all([
-      client.get(`/tours/${id}`),
-      client.get('/articles', { params: { tourId: id, limit: 3 } })
-    ]);
-
-    setTour(tourData);
-    setSelectedImage(getTourImages(tourData)[0] || '');
-    setCurrentImageIndex(0);
-    setRelatedArticles(articlesData || []);
+    try {
+      const { data: tourData } = await client.get(`/tours/${id}`);
+      setTour(tourData);
+      setSelectedImage(getTourImages(tourData)[0] || '');
+      setCurrentImageIndex(0);
+    } catch (err) {
+      setMessage('Không thể tải thông tin tour. Vui lòng thử lại.');
+      return;
+    }
+    // Load articles separately so a timeout doesn't block tour display
+    try {
+      const { data: articlesData } = await client.get('/articles', { params: { tourId: id, limit: 3 } });
+      setRelatedArticles(articlesData || []);
+    } catch {
+      // Non-critical, ignore
+    }
   };
 
   const handlePrevImage = () => {
@@ -280,7 +288,7 @@ const TourDetailPage = () => {
   };
 
   if (!tour) {
-    return <p>Đang tải...</p>;
+    return <p>{message || 'Đang tải...'}</p>;
   }
   // Chỉ tính toán isDeparted sau khi đã có tour
   if (tour && tour.start_date) {

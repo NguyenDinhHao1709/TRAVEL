@@ -313,11 +313,17 @@ async function getRelevantTours(message) {
     if (keywordRows.length > 0) return keywordRows.map(mapTour);
   }
 
-  // ── Fallback: top tours ──
+  // ── Fallback: top upcoming tours ──
   const [fallbackRows] = await pool.execute(
     `SELECT ${SELECT_COLS} FROM tours WHERE ${baseWhere} ${orderLimit}`
   );
-  return fallbackRows.map(mapTour);
+  if (fallbackRows.length > 0) return fallbackRows.map(mapTour);
+
+  // ── Final fallback: bỏ filter ngày, lấy tour gần nhất ──
+  const [anyRows] = await pool.execute(
+    `SELECT ${SELECT_COLS} FROM tours WHERE slots > 0 ORDER BY start_date DESC LIMIT 5`
+  );
+  return anyRows.map(mapTour);
 }
 
 function mapTour(t) {
