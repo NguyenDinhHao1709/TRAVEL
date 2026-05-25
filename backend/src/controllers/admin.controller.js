@@ -202,32 +202,49 @@ exports.resetUserPassword = async (req, res) => {
   if (userRows.length === 0) return res.status(404).json({ message: 'Không tìm thấy người dùng' });
 
   const user = userRows[0];
-  const tempPassword = crypto.randomBytes(6).toString('hex');
-  const hash = await bcrypt.hash(tempPassword, 10);
 
+  // Tạo mật khẩu tạm dễ đọc (không phải hex)
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghjkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const all = upper + lower + digits;
+  const rand = (chars) => chars[Math.floor(Math.random() * chars.length)];
+  const tempPassword = rand(upper) + rand(digits) + Array.from({length: 6}, () => rand(all)).join('');
+
+  const hash = await bcrypt.hash(tempPassword, 10);
   await pool.execute('UPDATE users SET password = ?, must_change_password = 1, updated_at = NOW() WHERE id = ?', [hash, userId]);
 
   let emailSent = false;
-  if (shouldSendEmail) {
-    try {
-      await emailService.sendMail(
-        user.email,
-        'Mật khẩu tạm thời - HK2 Travel',
-        `<p>Xin chào <strong>${user.full_name}</strong>,</p>
-         <p>Mật khẩu của bạn đã được đặt lại. Mật khẩu tạm thời: <strong style="font-size:18px">${tempPassword}</strong></p>
-         <p>Vui lòng đổi mật khẩu ngay sau khi đăng nhập.</p>`
-      );
-      emailSent = true;
-    } catch (e) {
-      console.error('[Admin] Reset password email error:', e.message);
-    }
+  try {
+    await emailService.sendMail(
+      user.email,
+      'Mật khẩu tạm thời - HK2 Travel',
+      `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden">
+        <div style="background:#0d6efd;padding:20px 24px">
+          <h2 style="color:#fff;margin:0">HK2 Travel</h2>
+        </div>
+        <div style="padding:24px">
+          <p>Xin chào <strong>${user.full_name}</strong>,</p>
+          <p>Quản trị viên đã đặt lại mật khẩu tài khoản của bạn.</p>
+          <p>Mật khẩu tạm thời của bạn là:</p>
+          <div style="background:#f5f5f5;border-radius:6px;padding:14px 20px;text-align:center;margin:16px 0">
+            <span style="font-size:22px;font-weight:bold;letter-spacing:3px;color:#0d6efd">${tempPassword}</span>
+          </div>
+          <p style="color:#e53935"><strong>Lưu ý:</strong> Vui lòng đăng nhập và đổi mật khẩu ngay lập tức sau khi nhận được email này.</p>
+          <p style="color:#888;font-size:13px">Nếu bạn không yêu cầu thay đổi này, hãy liên hệ quản trị viên ngay.</p>
+        </div>
+      </div>`
+    );
+    emailSent = true;
+  } catch (e) {
+    console.error('[Admin] Reset password email error:', e.message);
   }
 
   const msg = emailSent
     ? `Đã reset mật khẩu và gửi mật khẩu tạm về ${user.email}`
-    : `Đã reset mật khẩu. Mật khẩu tạm: ${tempPassword}`;
+    : `Đã reset mật khẩu. Mật khẩu tạm: ${tempPassword} (Gửi email thất bại)`;
 
-  res.json({ message: msg, tempPassword: shouldSendEmail ? undefined : tempPassword });
+  res.json({ message: msg, tempPassword: emailSent ? undefined : tempPassword });
   } catch (err) {
     console.error('[Admin] resetUserPassword error:', err);
     res.status(500).json({ message: 'Không thể reset mật khẩu' });

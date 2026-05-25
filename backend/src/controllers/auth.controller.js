@@ -90,10 +90,21 @@ exports.requestRegisterOtp = async (req, res) => {
   emailService.sendMail(
     normalEmail,
     'Mã xác nhận đăng ký HK2 Travel',
-    `<p>Xin chào <strong>${String(fullName).trim().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c])}</strong>,</p>
-     <p>Mã OTP đăng ký của bạn là: <strong style="font-size:24px;letter-spacing:4px">${otp}</strong></p>
-     <p>Mã có hiệu lực trong <strong>5 phút</strong>.</p>
-     <p>Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email này.</p>`
+    `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden">
+      <div style="background:#0d6efd;padding:20px 24px">
+        <h2 style="color:#fff;margin:0">HK2 Travel</h2>
+      </div>
+      <div style="padding:24px">
+        <p>Xin chào <strong>${String(fullName).trim().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c])}</strong>,</p>
+        <p>Cảm ơn bạn đã đăng ký tài khoản. Nhập mã OTP bên dưới để xác nhận:</p>
+        <div style="background:#f5f5f5;border-radius:6px;padding:14px 20px;text-align:center;margin:16px 0">
+          <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#0d6efd">${otp}</span>
+        </div>
+        <p>Mã có hiệu lực trong <strong>5 phút</strong>.</p>
+        <p style="color:#e53935">Nếu bạn không thực hiện yêu cầu này, hãy bỏ qua email này.</p>
+        <p style="color:#888;font-size:13px">Email này được gửi tự động, vui lòng không trả lời.</p>
+      </div>
+    </div>`
   ).catch(e => console.error('[Auth] Gửi OTP email lỗi:', e.message));
   } catch (err) {
     console.error('[Auth] requestRegisterOtp error:', err);
@@ -176,8 +187,20 @@ exports.requestForgotPasswordOtp = async (req, res) => {
   emailService.sendMail(
     normalEmail,
     'Mã OTP đặt lại mật khẩu HK2 Travel',
-    `<p>Mã OTP đặt lại mật khẩu của bạn là: <strong style="font-size:24px;letter-spacing:4px">${otp}</strong></p>
-     <p>Mã có hiệu lực trong <strong>5 phút</strong>.</p>`
+    `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden">
+      <div style="background:#0d6efd;padding:20px 24px">
+        <h2 style="color:#fff;margin:0">HK2 Travel</h2>
+      </div>
+      <div style="padding:24px">
+        <p>Bạn đã yêu cầu đặt lại mật khẩu. Nhập mã OTP bên dưới để xác nhận:</p>
+        <div style="background:#f5f5f5;border-radius:6px;padding:14px 20px;text-align:center;margin:16px 0">
+          <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#0d6efd">${otp}</span>
+        </div>
+        <p>Mã có hiệu lực trong <strong>5 phút</strong>.</p>
+        <p style="color:#e53935">Nếu bạn không yêu cầu thay đổi mật khẩu, hãy bỏ qua email này.</p>
+        <p style="color:#888;font-size:13px">Email này được gửi tự động, vui lòng không trả lời.</p>
+      </div>
+    </div>`
   ).catch(e => console.error('[Auth] Gửi OTP email lỗi:', e.message));
   } catch (err) {
     console.error('[Auth] requestForgotPasswordOtp error:', err);
@@ -228,7 +251,7 @@ exports.changePassword = async (req, res) => {
     return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
   }
 
-  const [rows] = await pool.execute('SELECT password FROM users WHERE id = ? LIMIT 1', [userId]);
+  const [rows] = await pool.execute('SELECT password, email, full_name FROM users WHERE id = ? LIMIT 1', [userId]);
   if (rows.length === 0) {
     return res.status(404).json({ message: 'Không tìm thấy người dùng' });
   }
@@ -245,6 +268,23 @@ exports.changePassword = async (req, res) => {
   );
 
   res.json({ message: 'Đổi mật khẩu thành công' });
+
+  // Gửi email thông báo bảo mật (nền, không chờ)
+  emailService.sendMail(
+    rows[0].email,
+    'Mật khẩu của bạn vừa được thay đổi - HK2 Travel',
+    `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;overflow:hidden">
+      <div style="background:#0d6efd;padding:20px 24px">
+        <h2 style="color:#fff;margin:0">HK2 Travel</h2>
+      </div>
+      <div style="padding:24px">
+        <p>Xin chào <strong>${rows[0].full_name}</strong>,</p>
+        <p>Mật khẩu tài khoản của bạn vừa được thay đổi thành công.</p>
+        <p style="color:#e53935">Nếu bạn không thực hiện thay đổi này, vui lòng đổi lại mật khẩu ngay và liên hệ hỗ trợ.</p>
+        <p style="color:#888;font-size:13px">Email này được gửi tự động, vui lòng không trả lời.</p>
+      </div>
+    </div>`
+  ).catch(e => console.error('[Auth] Change password notification email error:', e.message));
   } catch (err) {
     console.error('[Auth] changePassword error:', err);
     res.status(500).json({ message: 'Lỗi đổi mật khẩu, vui lòng thử lại' });

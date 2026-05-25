@@ -234,12 +234,10 @@ const AdminDashboardPage = () => {
   };
 
   const resetPassword = async (userId, email) => {
-    const sendEmail = window.confirm(`Bạn có muốn gửi email reset tới ${email}? (Hệ thống sẽ tự tạo mật khẩu mới)`);
+    if (!window.confirm(`Xác nhận reset mật khẩu tài khoản ${email}?\nHệ thống sẽ tạo mật khẩu mới và gửi về email này.`)) return;
 
     try {
-      const { data } = await client.patch(`/admin/users/${userId}/reset-password`, {
-        sendEmail
-      });
+      const { data } = await client.patch(`/admin/users/${userId}/reset-password`, {});
 
       const msg = data.message || 'Đã reset mật khẩu thành công';
       setUserActionMessage(msg);
