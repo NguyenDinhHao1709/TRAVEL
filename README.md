@@ -5,7 +5,8 @@ Hệ thống quản lý du lịch phục vụ 3 loại người dùng: **Custome
 - **Frontend:** ReactJS + Vite + Bootstrap 5 + Recharts + OpenStreetMap
 - **Backend:** Node.js + Express (Monolith), REST API, JWT, Socket.IO
 - **Database:** MySQL / MariaDB 10.4
-- **Tích hợp:** VNPAY Payment Gateway, Cloudinary (upload ảnh), Gmail SMTP (OTP + email thông báo), AI Chatbot
+- **Tích hợp:** VNPAY Payment Gateway, Cloudinary (upload ảnh), Brevo API (OTP + email thông báo), AI Chatbot
+- **Triển khai:** Backend trên [Render.com](https://render.com), Frontend trên cPanel (`hk2travel.io.vn`), Database trên Clever Cloud MySQL
 
 ---
 
@@ -13,13 +14,17 @@ Hệ thống quản lý du lịch phục vụ 3 loại người dùng: **Custome
 
 ```
 Browser
-  └── Frontend (React, port 5173)
-        └── API calls /api/* ──▶ Backend (Express, port 5000)
-                                    ├── MySQL (travel_management)
+  └── Frontend (React, Vite)
+        └── API calls /api/* ──▶ Backend (Express — Render.com)
+                                    ├── MySQL (Clever Cloud)
                                     ├── Cloudinary (image upload)
-                                    ├── VNPAY (payment)
-                                    └── Gmail SMTP (OTP + thông báo email)
+                                    ├── VNPAY (payment gateway)
+                                    └── Brevo HTTP API (OTP + email thông báo)
 ```
+
+**Production URLs:**
+- Frontend: `https://hk2travel.io.vn`
+- Backend API: `https://travel-management-backend-b4pr.onrender.com/api`
 
 Backend là **monolith** — tất cả routes/controllers/services nằm trong `backend/src/`.
 
@@ -348,6 +353,8 @@ Frontend chạy tại: `http://localhost:5173`
 
 ## Email tự động
 
+Email được gửi qua **Brevo HTTP API** (HTTPS port 443 — không bị chặn trên cloud hosting). Cấu hình biến `BREVO_API_KEY` trong Render Environment.
+
 | Sự kiện | Người nhận | Nội dung |
 |---------|-----------|---------|
 | Đặt tour thành công | Khách hàng | Mã booking, tên tour, ngày khởi hành, số người, tổng tiền, nhắc thanh toán trong 5 phút |
@@ -397,7 +404,7 @@ User click "Thanh toán VNPAY"
 |--------|---------|
 | OTP hash bằng SHA-256 | Nhanh hơn bcrypt, OTP chỉ sống 5 phút nên đủ an toàn |
 | Song song hóa DB + hash | `Promise.all` kiểm tra email trùng + hash mật khẩu cùng lúc |
-| Email fire-and-forget | Response trả client ngay, email gửi nền không chờ SMTP |
+| Email fire-and-forget | Response trả client ngay, email gửi nền qua Brevo API không chờ |
 | Skeleton loading | Tour list hiển thị skeleton cards khi đang tải |
 | Scroll-to-top button | Nút cuộn lên đầu trang khi scroll xuống |
 | CSS animations | fadeSlideUp, fadeIn, scaleIn cho chuyển trang mượt |
@@ -430,10 +437,12 @@ User click "Thanh toán VNPAY"
 
 ## 3rd Party Services
 
-### Gmail SMTP (Email)
-1. Bật 2FA cho Gmail
-2. Tạo App Password tại: https://myaccount.google.com/apppasswords
-3. Điền vào `EMAIL_USER` và `EMAIL_PASS` trong `.env`
+### Brevo API (Email)
+1. Đăng ký tài khoản miễn phí tại: https://app.brevo.com
+2. Vào **Settings** → **SMTP et API** → **Clés API et MCP** → tạo API key
+3. Điền vào `BREVO_API_KEY` và `BREVO_SMTP_FROM` trong `.env` (hoặc Render Environment)
+
+> Brevo free: 300 email/ngày. Dùng HTTP API (port 443) nên không bị chặn trên cloud hosting.
 
 ### VNPAY Sandbox
 1. Đăng ký tại: https://sandbox.vnpayment.vn/devreg/
@@ -595,9 +604,12 @@ DB_NAME=travel_management
 # JWT
 JWT_SECRET=your_random_secret_here
 
-# Email (Gmail App Password)
-EMAIL_USER=hk2travel@gmail.com
-EMAIL_PASS=xxxx_xxxx_xxxx_xxxx
+# Email — Brevo HTTP API (production / Render)
+BREVO_API_KEY=xkeysib-your-api-key
+BREVO_SMTP_FROM=your-email@gmail.com
+# Email — Gmail SMTP (local dev fallback, khi không có BREVO_API_KEY)
+# EMAIL_USER=hk2travel@gmail.com
+# EMAIL_PASS=xxxx_xxxx_xxxx_xxxx
 
 # VNPAY (sandbox)
 VNPAY_TMN_CODE=your_tmn_code
@@ -788,7 +800,7 @@ User click "Thanh toán VNPAY"
 |--------|---------|
 | OTP hash bằng SHA-256 | Nhanh hơn bcrypt, OTP chỉ sống 5 phút nên đủ an toàn |
 | Song song hóa DB + hash | `Promise.all` kiểm tra email trùng + hash mật khẩu cùng lúc |
-| Gửi email fire-and-forget | Response trả client ngay, email gửi nền không chờ SMTP |
+| Gửi email fire-and-forget | Response trả client ngay, email gửi nền qua Brevo API không chờ |
 | Skeleton loading | Tour list hiển thị skeleton cards khi đang tải |
 | Scroll-to-top button | Nút cuộn lên đầu trang khi scroll xuống |
 | CSS animations | fadeSlideUp, fadeIn, scaleIn cho chuyển trang mượt |
@@ -820,10 +832,10 @@ User click "Thanh toán VNPAY"
 
 ## 3rd Party Services
 
-### Gmail SMTP (OTP email)
-1. Bật 2FA cho Gmail
-2. Tạo App Password tại: https://myaccount.google.com/apppasswords
-3. Điền vào `EMAIL_USER` và `EMAIL_PASS` trong `.env`
+### Brevo API (OTP email)
+1. Đăng ký tài khoản miễn phí tại: https://app.brevo.com
+2. Vào **Settings** → **SMTP et API** → **Clés API et MCP** → tạo API key
+3. Điền vào `BREVO_API_KEY` và `BREVO_SMTP_FROM` trong Render Environment
 
 ### VNPAY Sandbox
 1. Đăng ký tại: https://sandbox.vnpayment.vn/devreg/
