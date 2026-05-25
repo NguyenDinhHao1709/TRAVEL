@@ -79,25 +79,32 @@ const StaffDashboardPage = () => {
   };
 
   const load = async () => {
-    const [bookingRes, customerRes, contactRes] = await Promise.all([
-      client.get('/bookings/staff/all'),
-      client.get('/staff/customers'),
-      client.get('/contact/messages')
-    ]);
-
-    setBookings(bookingRes.data);
-    setCustomers(customerRes.data);
-    setContactInbox(contactRes.data);
+    try {
+      const [bookingRes, customerRes, contactRes] = await Promise.all([
+        client.get('/bookings/staff/all'),
+        client.get('/staff/customers'),
+        client.get('/contact/messages')
+      ]);
+      setBookings(bookingRes.data || []);
+      setCustomers(customerRes.data || []);
+      setContactInbox(contactRes.data || { unreadCount: 0, items: [] });
+    } catch (error) {
+      console.error('Lỗi tải dữ liệu staff:', error);
+    }
   };
 
   const loadReviews = async (page = reviewPage, filter = reviewFilter) => {
-    const { data } = await client.get('/reviews/admin/all', {
-      params: { page, limit: 10, ...filter }
-    });
-    setReviews(data.data);
-    setReviewTotal(data.total);
-    setReviewPage(data.page);
-    setReviewTotalPages(data.totalPages);
+    try {
+      const { data } = await client.get('/reviews/admin/all', {
+        params: { page, limit: 10, ...filter }
+      });
+      setReviews(data.data || []);
+      setReviewTotal(data.total || 0);
+      setReviewPage(data.page || 1);
+      setReviewTotalPages(data.totalPages || 1);
+    } catch (error) {
+      console.error('Lỗi tải reviews:', error);
+    }
   };
 
   useEffect(() => {

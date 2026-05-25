@@ -107,52 +107,73 @@ const AdminDashboardPage = () => {
 
   // Load dashboard
   const loadDashboard = async () => {
-    const { data } = await client.get('/admin/dashboard');
-    setDashboard(data);
+    try {
+      const { data } = await client.get('/admin/dashboard');
+      setDashboard(data);
+    } catch (error) {
+      console.error('Lỗi tải dashboard:', error);
+      setDashboard({});
+    }
   };
 
   // Load users
   const loadUsers = async (page = userPage, filter = userFilter) => {
-    const { data } = await client.get('/admin/users', {
-      params: { page, limit: 10, ...filter }
-    });
-    setUsers(data.data);
-    setUserTotal(data.total);
-    setUserPage(data.page);
-    setUserTotalPages(data.totalPages);
+    try {
+      const { data } = await client.get('/admin/users', {
+        params: { page, limit: 10, ...filter }
+      });
+      setUsers(data.data || []);
+      setUserTotal(data.total || 0);
+      setUserPage(data.page || 1);
+      setUserTotalPages(data.totalPages || 1);
+    } catch (error) {
+      console.error('Lỗi tải users:', error);
+    }
   };
 
   // Load reviews
   const loadReviews = async (page = reviewPage, filter = reviewFilter) => {
-    const { data } = await client.get('/reviews/admin/all', {
-      params: { page, limit: 10, ...filter }
-    });
-    setReviews(data.data);
-    setReviewTotal(data.total);
-    setReviewPage(data.page);
-    setReviewTotalPages(data.totalPages);
+    try {
+      const { data } = await client.get('/reviews/admin/all', {
+        params: { page, limit: 10, ...filter }
+      });
+      setReviews(data.data || []);
+      setReviewTotal(data.total || 0);
+      setReviewPage(data.page || 1);
+      setReviewTotalPages(data.totalPages || 1);
+    } catch (error) {
+      console.error('Lỗi tải reviews:', error);
+    }
   };
 
   // Load logs (system logs)
   const loadLogs = async (page = logPage, filter = logFilter) => {
-    const { data } = await client.get('/admin/system-logs', {
-      params: { page, limit: 10, ...filter }
-    });
-    setLogs(data.data);
-    setLogTotal(data.total);
-    setLogPage(data.page);
-    setLogTotalPages(data.totalPages);
+    try {
+      const { data } = await client.get('/admin/system-logs', {
+        params: { page, limit: 10, ...filter }
+      });
+      setLogs(data.data || []);
+      setLogTotal(data.total || 0);
+      setLogPage(data.page || 1);
+      setLogTotalPages(data.totalPages || 1);
+    } catch (error) {
+      console.error('Lỗi tải logs:', error);
+    }
   };
 
   // Load contacts
   const loadContacts = async (page = contactPage, filter = contactFilter) => {
-    const { data } = await client.get('/contact/messages', {
-      params: { page, limit: 10, ...filter }
-    });
-    setContactInbox({ unreadCount: data.unreadCount, items: data.items });
-    setContactTotal(data.total);
-    setContactPage(data.page);
-    setContactTotalPages(data.totalPages);
+    try {
+      const { data } = await client.get('/contact/messages', {
+        params: { page, limit: 10, ...filter }
+      });
+      setContactInbox({ unreadCount: data.unreadCount || 0, items: data.items || [] });
+      setContactTotal(data.total || 0);
+      setContactPage(data.page || 1);
+      setContactTotalPages(data.totalPages || 1);
+    } catch (error) {
+      console.error('Lỗi tải contacts:', error);
+    }
   };
 
   const markContactAsRead = async (id) => {
@@ -243,8 +264,12 @@ const AdminDashboardPage = () => {
       params.year = reportFilter.year;
     }
 
-    const { data } = await client.get('/admin/bookings-report', { params });
-    setBookingReport(data);
+    try {
+      const { data } = await client.get('/admin/bookings-report', { params });
+      setBookingReport(data);
+    } catch (error) {
+      console.error('Lỗi tải báo cáo:', error);
+    }
   };
   const handleReportGroupChange = (value) => {
     setReportFilter((current) => ({

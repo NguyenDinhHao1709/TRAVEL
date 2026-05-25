@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import client from '../../api/client';
 
 function formatDate(dateStr) {
   return new Date(dateStr).toLocaleString('vi-VN');
@@ -24,12 +24,12 @@ export default function AdminSystemLogsPage() {
   async function fetchLogs() {
     setLoading(true);
     try {
-      const res = await axios.get(`/admin/system-logs?page=${page}&limit=${limit}`);
+      const res = await client.get('/admin/system-logs', { params: { page, limit } });
       const safeLogs = Array.isArray(res.data.data) ? res.data.data : [];
       setLogs(safeLogs);
       setTotal(res.data.total);
     } catch (err) {
-      alert('Lỗi tải log');
+      console.error('Lỗi tải log:', err);
     }
     setLoading(false);
   }
