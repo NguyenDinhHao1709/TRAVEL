@@ -34,7 +34,7 @@ exports.getAdminAllReviews = async (req, res) => {
     const [[{ total }]] = await pool.execute(`SELECT COUNT(*) as total FROM reviews r LEFT JOIN users u ON u.id = r.user_id ${where}`, params);
     const [rows] = await pool.execute(
       `SELECT r.*, u.full_name as user_name, t.title as tour_title FROM reviews r LEFT JOIN users u ON u.id = r.user_id LEFT JOIN tours t ON t.id = r.tour_id ${where} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`,
-      [...params, Number(limit), offset]
+      [...params, String(Number(limit)), String(offset)]
     );
 
     res.json({ data: rows, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });

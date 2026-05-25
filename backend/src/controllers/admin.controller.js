@@ -28,7 +28,7 @@ exports.getSystemLogs = async (req, res) => {
        LEFT JOIN users u ON u.id = l.user_id
        ${where}
        ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
-      [...params, Number(limit), offset]
+      [...params, String(Number(limit)), String(offset)]
     );
     res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
   } catch (err) {
@@ -70,7 +70,7 @@ exports.getUsers = async (req, res) => {
     const [[{ total }]] = await pool.execute(`SELECT COUNT(*) as total FROM users ${where}`, params);
     const [data] = await pool.execute(
       `SELECT id, full_name, email, role, phone, is_locked, must_change_password, created_at FROM users ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, Number(limit), offset]
+      [...params, String(Number(limit)), String(offset)]
     );
 
     res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
@@ -252,7 +252,7 @@ exports.getLogs = async (req, res) => {
     );
     const [data] = await pool.execute(
       `SELECT l.*, u.full_name as user_name FROM system_logs l LEFT JOIN users u ON u.id = l.user_id ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
-      [...params, Number(limit), offset]
+      [...params, String(Number(limit)), String(offset)]
     );
 
     res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });

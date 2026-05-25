@@ -32,7 +32,7 @@ exports.getContactMessages = async (req, res) => {
 
     const [items] = await pool.execute(
       `SELECT * FROM contact_messages ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
-      [...params, Number(limit), offset]
+      [...params, String(Number(limit)), String(offset)]
     );
 
     res.json({ items, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)), unreadCount });

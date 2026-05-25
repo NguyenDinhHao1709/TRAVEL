@@ -45,7 +45,7 @@ exports.getAllArticles = async (req, res) => {
     });
   }
 
-  if (limit) { query += ' LIMIT ?'; params.push(Number(limit)); }
+  if (limit) { query += ' LIMIT ?'; params.push(String(Math.max(1, parseInt(limit) || 100))); }
   const [rows] = await pool.execute(query, params);
   res.json(rows);
 };
