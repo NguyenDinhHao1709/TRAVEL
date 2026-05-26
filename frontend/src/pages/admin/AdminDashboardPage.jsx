@@ -498,6 +498,56 @@ const AdminDashboardPage = () => {
                         ))}
                       </tbody>
                     </Table>
+
+                    {bookingReport.details && bookingReport.details.length > 0 && (
+                      <>
+                        <h6 className="mt-4 mb-2">Chi tiết từng đơn đặt tour</h6>
+                        <Table striped bordered hover responsive size="sm">
+                          <thead>
+                            <tr>
+                              <th>ID</th>
+                              <th>Thời gian đặt</th>
+                              <th>Khách hàng</th>
+                              <th>Email</th>
+                              <th>Tour</th>
+                              <th>Số người</th>
+                              <th>Trạng thái</th>
+                              <th>Thanh toán</th>
+                              <th>Phương thức</th>
+                              <th>Tổng tiền (VND)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bookingReport.details.map((b) => (
+                              <tr key={b.id}>
+                                <td>{b.id}</td>
+                                <td style={{ whiteSpace: 'nowrap' }}>{formatDateTimeVN(b.created_at)}</td>
+                                <td>{b.customer_name || '-'}</td>
+                                <td>{b.customer_email || '-'}</td>
+                                <td>{b.tour_title || '-'}</td>
+                                <td>{b.num_people}</td>
+                                <td>
+                                  <Badge bg={
+                                    b.booking_status === 'confirmed' ? 'success' :
+                                    b.booking_status === 'cancelled' ? 'danger' :
+                                    b.booking_status === 'completed' ? 'primary' : 'warning'
+                                  }>
+                                    {toVietnameseStatus(b.booking_status, bookingStatusLabel)}
+                                  </Badge>
+                                </td>
+                                <td>
+                                  <Badge bg={b.payment_status === 'paid' ? 'success' : 'secondary'}>
+                                    {toVietnameseStatus(b.payment_status, paymentStatusLabel)}
+                                  </Badge>
+                                </td>
+                                <td>{toVietnameseStatus(b.payment_method, paymentMethodLabel)}</td>
+                                <td>{Number(b.total_amount || 0).toLocaleString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      </>
+                    )}
                   </>
                 )}
               </Card.Body>

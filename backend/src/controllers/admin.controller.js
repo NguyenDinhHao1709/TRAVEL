@@ -308,6 +308,19 @@ exports.getBookingsReport = async (req, res) => {
       ORDER BY period ASC
     `, params);
 
+    // Chi tiết từng booking trong kỳ được chọn
+    const [details] = await pool.execute(`
+      SELECT b.id, b.created_at, b.booking_status, b.payment_status, b.payment_method,
+             b.total_amount, b.num_people,
+             u.full_name as customer_name, u.email as customer_email,
+             t.title as tour_title
+      FROM bookings b
+      LEFT JOIN users u ON u.id = b.user_id
+      LEFT JOIN tours t ON t.id = b.tour_id
+      ${whereClause}
+      ORDER BY b.created_at DESC
+    `, params);
+
     const summary = {
       totalBooked: rows.reduce((s, r) => s + Number(r.totalBooked || 0), 0),
       totalSuccess: rows.reduce((s, r) => s + Number(r.successCount || 0), 0),
@@ -315,7 +328,7 @@ exports.getBookingsReport = async (req, res) => {
       totalRevenue: rows.reduce((s, r) => s + Number(r.revenue || 0), 0)
     };
 
-    res.json({ summary, series: rows, groupBy, selected });
+    res.json({ summary, series: rows, details, groupBy, selected });
   } catch (err) {
     console.error('[Admin] getBookingsReport error:', err);
     res.status(500).json({ message: 'Lỗi tải báo cáo đặt tour' });
