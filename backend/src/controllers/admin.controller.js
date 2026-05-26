@@ -7,7 +7,9 @@ const emailService = require('../services/email.service');
 exports.getSystemLogs = async (req, res) => {
   try {
     const { page = 1, limit = 10, search, role, action, since } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
+    const pageNum = Math.max(1, Number.parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, Number.parseInt(limit, 10) || 10);
+    const offset = (pageNum - 1) * limitNum;
 
     let where = 'WHERE 1=1';
     const params = [];
@@ -28,9 +30,9 @@ exports.getSystemLogs = async (req, res) => {
        LEFT JOIN users u ON u.id = l.user_id
        ${where}
        ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
-      [...params, Number(limit), Number(offset)]
+      [...params, String(limitNum), String(offset)]
     );
-    res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
+    res.json({ data, total, page: pageNum, totalPages: Math.ceil(total / limitNum) });
   } catch (err) {
     console.error('[Admin] getSystemLogs error:', err);
     res.status(500).json({ message: 'Lỗi tải nhật ký hệ thống' });
