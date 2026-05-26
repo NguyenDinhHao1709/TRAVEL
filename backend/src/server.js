@@ -23,7 +23,10 @@ app.set('trust proxy', 1);
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // Serve local uploaded files
-app.use('/uploads', express.static(require('path').join(__dirname, '../../uploads')));
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static(require('path').join(__dirname, '../../uploads')));
 
 // Security middleware
 app.use(helmet());
