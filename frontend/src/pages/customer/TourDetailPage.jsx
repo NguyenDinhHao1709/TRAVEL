@@ -502,6 +502,11 @@ const TourDetailPage = () => {
             </Card.Body>
           </Card>
 
+          {/* Mobile booking card: hiển thị ngay trên bản đồ */}
+          <div className="d-lg-none">
+            {renderBookingCard()}
+          </div>
+
           {/* Map */}
           <Card className="mb-3 border-0 shadow-sm">
             <Card.Body>
@@ -510,39 +515,36 @@ const TourDetailPage = () => {
             </Card.Body>
           </Card>
 
-          {/* Related Articles */}
-          <Card className="mb-3 border-0 shadow-sm">
-            <Card.Body>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-
-          {/* Mobile booking card: hiển thị ngay dưới lịch trình */}
-          <div className="d-lg-none">
-            {renderBookingCard()}
-          </div>
-                <h5 className="mb-0">📰 Bài viết về tour này</h5>
-                <Button as={Link} to="/articles" size="sm" variant="outline-primary">Xem tất cả</Button>
-              </div>
-              {relatedArticles.length === 0 ? (
-                <p className="text-muted mb-0">Hiện chưa có bài viết cho tour này.</p>
-              ) : (
-                <div className="d-flex flex-column gap-2">
-                  {relatedArticles.map((article) => (
-                    <Card key={article.id} className="border-0 bg-light-subtle" role="button" style={{ cursor: 'pointer' }} as={Link} to={`/articles/${article.id}`}>
-                      <Card.Body className="py-2 px-3">
-                        <div className="fw-semibold mb-1">{article.title}</div>
-                        <small className="text-muted d-block mb-1">
-                          {new Date(article.created_at).toLocaleDateString('vi-VN')}
-                        </small>
-                        <small className="text-muted">
-                          {(article.content || '').slice(0, 140)}{article.content?.length > 140 ? '...' : ''}
-                        </small>
-                      </Card.Body>
-                    </Card>
-                  ))}
+          {/* Related Articles on desktop: giữ nguyên vị trí cũ */}
+          <div className="d-none d-lg-block">
+            <Card className="mb-3 border-0 shadow-sm">
+              <Card.Body>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0">📰 Bài viết về tour này</h5>
+                  <Button as={Link} to="/articles" size="sm" variant="outline-primary">Xem tất cả</Button>
                 </div>
-              )}
-            </Card.Body>
-          </Card>
+                {relatedArticles.length === 0 ? (
+                  <p className="text-muted mb-0">Hiện chưa có bài viết cho tour này.</p>
+                ) : (
+                  <div className="d-flex flex-column gap-2">
+                    {relatedArticles.map((article) => (
+                      <Card key={article.id} className="border-0 bg-light-subtle" role="button" style={{ cursor: 'pointer' }} as={Link} to={`/articles/${article.id}`}>
+                        <Card.Body className="py-2 px-3">
+                          <div className="fw-semibold mb-1">{article.title}</div>
+                          <small className="text-muted d-block mb-1">
+                            {new Date(article.created_at).toLocaleDateString('vi-VN')}
+                          </small>
+                          <small className="text-muted">
+                            {(article.content || '').slice(0, 140)}{article.content?.length > 140 ? '...' : ''}
+                          </small>
+                        </Card.Body>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          </div>
 
           {/* Reviews Section - moved to bottom of left column */}
           <Card className="mb-3 border-0 shadow-sm">
@@ -678,6 +680,37 @@ const TourDetailPage = () => {
               )) : <p className="text-muted">Chưa có đánh giá nào</p>}
             </Card.Body>
           </Card>
+
+          {/* Related Articles on mobile: tách xuống dưới cùng */}
+          <div className="d-lg-none">
+            <Card className="mb-3 border-0 shadow-sm">
+              <Card.Body>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <h5 className="mb-0">📰 Bài viết về tour này</h5>
+                  <Button as={Link} to="/articles" size="sm" variant="outline-primary">Xem tất cả</Button>
+                </div>
+                {relatedArticles.length === 0 ? (
+                  <p className="text-muted mb-0">Hiện chưa có bài viết cho tour này.</p>
+                ) : (
+                  <div className="d-flex flex-column gap-2">
+                    {relatedArticles.map((article) => (
+                      <Card key={article.id} className="border-0 bg-light-subtle" role="button" style={{ cursor: 'pointer' }} as={Link} to={`/articles/${article.id}`}>
+                        <Card.Body className="py-2 px-3">
+                          <div className="fw-semibold mb-1">{article.title}</div>
+                          <small className="text-muted d-block mb-1">
+                            {new Date(article.created_at).toLocaleDateString('vi-VN')}
+                          </small>
+                          <small className="text-muted">
+                            {(article.content || '').slice(0, 140)}{article.content?.length > 140 ? '...' : ''}
+                          </small>
+                        </Card.Body>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          </div>
         </Col>
 
         {/* === RIGHT COLUMN - Sticky Booking Widget === */}
