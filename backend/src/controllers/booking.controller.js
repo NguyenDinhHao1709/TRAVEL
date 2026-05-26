@@ -117,8 +117,8 @@ exports.createBooking = async (req, res) => {
   // Giảm slot và tạo booking
   await pool.execute('UPDATE tours SET slots = slots - ? WHERE id = ? AND slots >= ?', [count, tourId, count]);
   const [result] = await pool.execute(
-    'INSERT INTO bookings (user_id, tour_id, people_count, total_amount, booking_status, payment_status) VALUES (?, ?, ?, ?, ?, ?)',
-    [userId, tourId, count, totalAmount, 'pending', 'unpaid']
+    'INSERT INTO bookings (user_id, tour_id, people_count, total_amount, booking_status, payment_status, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [userId, tourId, count, totalAmount, 'pending', 'unpaid', 'payos']
   );
 
   res.status(201).json({ id: result.insertId, message: 'Đặt tour thành công' });

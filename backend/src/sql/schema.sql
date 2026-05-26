@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   total_amount BIGINT NOT NULL DEFAULT 0,
   booking_status ENUM('pending','confirmed','cancelled','completed') DEFAULT 'pending',
   payment_status ENUM('unpaid','paid','failed','refunded') DEFAULT 'unpaid',
-  payment_method VARCHAR(30) DEFAULT 'vnpay',
+  payment_method VARCHAR(30) DEFAULT 'payos',
   vnpay_txn_ref VARCHAR(100),
   vnpay_transaction_no VARCHAR(100),
   confirmed_by_staff_id INT DEFAULT NULL,

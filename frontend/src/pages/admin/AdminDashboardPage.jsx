@@ -43,7 +43,9 @@ const paymentMethodLabel = {
   cash: 'Tiền mặt',
   card: 'Thẻ',
   bank_transfer: 'Chuyển khoản',
-  vnpay: 'VNPay',
+  vnpay: 'PayOS / VietQR',
+  payos: 'PayOS / VietQR',
+  vietqr: 'VietQR',
 };
 
 const toVietnameseStatus = (value, map) => map[String(value || '').toLowerCase()] || value || '-';
