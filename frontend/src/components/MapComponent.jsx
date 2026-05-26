@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const containerStyle = {
@@ -22,14 +21,37 @@ const overlayButtonStyle = {
   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)'
 };
 
+// Component nội bộ — chỉ render khi apiKey hợp lệ, tránh gọi useJsApiLoader với key rỗng
+const GoogleMapInner = ({ center, googleMapsUrl, coordinateLabel, apiKey }) => {
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: apiKey
+  });
+
+  if (loadError || !isLoaded) {
+    return <div>Đang tải bản đồ...</div>;
+  }
+
+  return (
+    <div>
+      <div style={{ position: 'relative' }}>
+        <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={15}>
+          <Marker position={center} />
+        </GoogleMap>
+        <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" style={overlayButtonStyle}>
+          Mo Google Maps
+        </a>
+      </div>
+      <div style={{ marginTop: 8, fontSize: 13, color: '#4b5563' }}>
+        Toa do: {coordinateLabel}
+      </div>
+    </div>
+  );
+};
+
 const MapComponent = ({ latitude = 10.8231, longitude = 106.6797 }) => {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   const isGoogleKeyValid = !!apiKey && !['MOCK', 'your_google_maps_api_key'].includes(apiKey);
-
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: isGoogleKeyValid ? apiKey : ''
-  });
 
   const center = {
     lat: parseFloat(latitude) || 10.8231,
@@ -42,7 +64,7 @@ const MapComponent = ({ latitude = 10.8231, longitude = 106.6797 }) => {
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${center.lat},${center.lng}`)}`;
   const coordinateLabel = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
 
-  if (!isGoogleKeyValid || loadError) {
+  if (!isGoogleKeyValid) {
     return (
       <div>
         <div style={{ position: 'relative' }}>
@@ -65,24 +87,13 @@ const MapComponent = ({ latitude = 10.8231, longitude = 106.6797 }) => {
     );
   }
 
-  if (!isLoaded) {
-    return <div>Đang tải bản đồ...</div>;
-  }
-
   return (
-    <div>
-      <div style={{ position: 'relative' }}>
-        <GoogleMap mapContainerStyle={containerStyle} center={center} zoom={15}>
-          <Marker position={center} />
-        </GoogleMap>
-        <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" style={overlayButtonStyle}>
-          Mo Google Maps
-        </a>
-      </div>
-      <div style={{ marginTop: 8, fontSize: 13, color: '#4b5563' }}>
-        Toa do: {coordinateLabel}
-      </div>
-    </div>
+    <GoogleMapInner
+      center={center}
+      googleMapsUrl={googleMapsUrl}
+      coordinateLabel={coordinateLabel}
+      apiKey={apiKey}
+    />
   );
 };
 
