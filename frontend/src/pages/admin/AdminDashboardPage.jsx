@@ -511,11 +511,13 @@ const AdminDashboardPage = () => {
                               <th>Thời gian đặt</th>
                               <th>Khách hàng</th>
                               <th>Email</th>
+                              <th>SĐT</th>
                               <th>Tour</th>
                               <th>Số người</th>
                               <th>Trạng thái</th>
                               <th>Thanh toán</th>
                               <th>Phương thức</th>
+                              <th>Mã giao dịch</th>
                               <th>Tổng tiền (VND)</th>
                             </tr>
                           </thead>
@@ -526,6 +528,7 @@ const AdminDashboardPage = () => {
                                 <td style={{ whiteSpace: 'nowrap' }}>{formatDateTimeVN(b.created_at)}</td>
                                 <td>{b.customer_name || '-'}</td>
                                 <td>{b.customer_email || '-'}</td>
+                                <td>{b.customer_phone || '-'}</td>
                                 <td>{b.tour_title || '-'}</td>
                                 <td>{b.people_count}</td>
                                 <td>
@@ -543,6 +546,7 @@ const AdminDashboardPage = () => {
                                   </Badge>
                                 </td>
                                 <td>{toVietnameseStatus(b.payment_method, paymentMethodLabel)}</td>
+                                <td style={{ whiteSpace: 'nowrap' }}>{b.payment_ref || '-'}</td>
                                 <td>{Number(b.total_amount || 0).toLocaleString()}</td>
                               </tr>
                             ))}
