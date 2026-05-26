@@ -12,15 +12,15 @@ exports.getSystemLogs = async (req, res) => {
     let where = 'WHERE 1=1';
     const params = [];
     if (search) {
-      where += ' AND (action LIKE ? OR action_detail LIKE ? OR details LIKE ?)';
+      where += ' AND (l.action LIKE ? OR l.action_detail LIKE ? OR CAST(l.details AS CHAR) LIKE ?)';
       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
-    if (role) { where += ' AND role = ?'; params.push(role); }
-    if (action) { where += ' AND action LIKE ?'; params.push(`%${action}%`); }
-    if (since) { where += ' AND created_at >= ?'; params.push(since); }
+    if (role) { where += ' AND l.role = ?'; params.push(role); }
+    if (action) { where += ' AND l.action LIKE ?'; params.push(`%${action}%`); }
+    if (since) { where += ' AND l.created_at >= ?'; params.push(since); }
 
     const [[{ total }]] = await pool.execute(
-      `SELECT COUNT(*) as total FROM system_logs ${where}`, params
+      `SELECT COUNT(*) as total FROM system_logs l LEFT JOIN users u ON u.id = l.user_id ${where}`, params
     );
     const [data] = await pool.execute(
       `SELECT l.*, u.full_name as user_name, u.email as user_email
@@ -28,7 +28,7 @@ exports.getSystemLogs = async (req, res) => {
        LEFT JOIN users u ON u.id = l.user_id
        ${where}
        ORDER BY l.created_at DESC LIMIT ? OFFSET ?`,
-      [...params, String(Number(limit)), String(offset)]
+      [...params, Number(limit), Number(offset)]
     );
     res.json({ data, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)) });
   } catch (err) {
