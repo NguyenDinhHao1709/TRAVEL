@@ -309,6 +309,12 @@ exports.getBookingsReport = async (req, res) => {
     `, params);
 
     // Chi tiết từng booking trong kỳ được chọn
+    // whereClause dùng tên bảng không qualified, cần thay cho JOIN query
+    const detailsWhereClause = whereClause
+      .replace(/DATE\(created_at\)/g, 'DATE(b.created_at)')
+      .replace(/DATE_FORMAT\(created_at,/g, 'DATE_FORMAT(b.created_at,')
+      .replace(/YEAR\(created_at\)/g, 'YEAR(b.created_at)')
+      .replace(/created_at >=/g, 'b.created_at >=');
     const [details] = await pool.execute(`
       SELECT b.id, b.created_at, b.booking_status, b.payment_status, b.payment_method,
              b.total_amount, b.num_people,
@@ -317,7 +323,7 @@ exports.getBookingsReport = async (req, res) => {
       FROM bookings b
       LEFT JOIN users u ON u.id = b.user_id
       LEFT JOIN tours t ON t.id = b.tour_id
-      ${whereClause}
+      ${detailsWhereClause}
       ORDER BY b.created_at DESC
     `, params);
 
