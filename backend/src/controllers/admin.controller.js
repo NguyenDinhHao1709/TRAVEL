@@ -317,7 +317,7 @@ exports.getBookingsReport = async (req, res) => {
       .replace(/created_at >=/g, 'b.created_at >=');
     const [details] = await pool.execute(`
       SELECT b.id, b.created_at, b.booking_status, b.payment_status, b.payment_method,
-             b.total_amount, b.num_people,
+             b.total_amount, b.people_count,
              u.full_name as customer_name, u.email as customer_email,
              t.title as tour_title
       FROM bookings b

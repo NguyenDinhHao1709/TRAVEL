@@ -525,7 +525,7 @@ const AdminDashboardPage = () => {
                                 <td>{b.customer_name || '-'}</td>
                                 <td>{b.customer_email || '-'}</td>
                                 <td>{b.tour_title || '-'}</td>
-                                <td>{b.num_people}</td>
+                                <td>{b.people_count}</td>
                                 <td>
                                   <Badge bg={
                                     b.booking_status === 'confirmed' ? 'success' :
