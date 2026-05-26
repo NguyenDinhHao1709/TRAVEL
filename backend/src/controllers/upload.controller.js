@@ -19,7 +19,9 @@ async function saveLocalFile(buffer, originalname) {
   const processed = await processImage(buffer);
   const filename = `${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
   fs.writeFileSync(path.join(UPLOAD_DIR, filename), processed);
-  return `/uploads/${filename}`;
+  // Trả về URL tuyệt đối để frontend có thể load ảnh đúng cách
+  const backendBase = (process.env.BACKEND_URL || '').replace(/\/$/, '');
+  return `${backendBase}/uploads/${filename}`;
 }
 
 exports.uploadTourImages = async (req, res) => {

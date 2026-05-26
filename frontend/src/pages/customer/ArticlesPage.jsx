@@ -3,6 +3,7 @@ import { Card, Row, Col, Badge, Alert, Spinner, Button, Form } from 'react-boots
 import { Link, useNavigate } from 'react-router-dom';
 import client from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const initialForm = {
   title: '',
@@ -271,7 +272,7 @@ const ArticlesPage = () => {
                 {article.image_url && (
                   <Card.Img
                     variant="top"
-                    src={article.image_url}
+                    src={getImageUrl(article.image_url)}
                     style={{ height: '190px', objectFit: 'cover' }}
                     alt={article.title}
                   />

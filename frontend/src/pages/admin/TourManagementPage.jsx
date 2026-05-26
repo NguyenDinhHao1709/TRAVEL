@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import ImageUpload from '../../components/ImageUpload';
 import client from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const initialForm = {
   title: '',
@@ -308,7 +309,7 @@ const TourManagementPage = () => {
                       <td>
                         <div className="d-flex align-items-center gap-2">
                           {tour.image_url && (
-                            <img src={tour.image_url} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
+                            <img src={getImageUrl(tour.image_url)} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, flexShrink: 0 }} />
                           )}
                           <span className="fw-semibold" style={{ fontSize: '0.9rem' }}>{tour.title}</span>
                         </div>
@@ -546,7 +547,7 @@ const TourManagementPage = () => {
                   <div className="mt-2 d-flex flex-wrap gap-2">
                     {form.imageUrls.map((url, index) => (
                       <div key={`${url}-${index}`} style={{ position: 'relative' }}>
-                        <img src={url} alt={`preview-${index + 1}`} style={{ width: '140px', height: '100px', objectFit: 'contain', borderRadius: '8px' }} />
+                        <img src={getImageUrl(url)} alt={`preview-${index + 1}`} style={{ width: '140px', height: '100px', objectFit: 'contain', borderRadius: '8px' }} />
                         <Button
                           size="sm"
                           variant="danger"

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Row, Col, Card, Form, Button, Badge, Alert, Carousel, Pagination } from 'react-bootstrap';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import client from '../../api/client';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const SLIDES = [
   {
@@ -123,7 +124,7 @@ const TourListPage = () => {
 
   const getDestImage = (searchName) => {
     const match = tours.find((t) => t.destination && t.destination.toLowerCase().includes(searchName.toLowerCase()) && t.image_url);
-    return match ? match.image_url : DEST_FALLBACK_IMG;
+    return match ? getImageUrl(match.image_url) : DEST_FALLBACK_IMG;
   };
 
   const goToDestination = (dest) => {
@@ -234,7 +235,7 @@ const TourListPage = () => {
                   <Badge bg="danger" className="featured-hot-badge">Hot</Badge>
                   <div className="tour-card-img-wrap">
                     {tour.image_url ? (
-                      <Card.Img variant="top" src={tour.image_url} className="tour-card-img" />
+                      <Card.Img variant="top" src={getImageUrl(tour.image_url)} className="tour-card-img" />
                     ) : (
                       <div className="featured-tour-placeholder">{tour.destination}</div>
                     )}
@@ -324,7 +325,7 @@ const TourListPage = () => {
                   <Badge bg="secondary" className="tour-slot-badge">{tour.slots || 0} chỗ</Badge>
                   <div className="tour-card-img-wrap">
                     {tour.image_url ? (
-                      <Card.Img variant="top" src={tour.image_url} className="tour-card-img" />
+                      <Card.Img variant="top" src={getImageUrl(tour.image_url)} className="tour-card-img" />
                     ) : (
                       <div className="featured-tour-placeholder">{tour.destination}</div>
                     )}

@@ -4,6 +4,7 @@ import { Card, Row, Col, Button, Form, Alert, Badge, Accordion } from 'react-boo
 import client from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import MapComponent from '../../components/MapComponent';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const renderStars = (value = 0) => {
   const safeValue = Math.max(0, Math.min(5, Number(value) || 0));
@@ -13,10 +14,10 @@ const renderStars = (value = 0) => {
 const getTourImages = (tour) => {
   if (!tour) return [];
   if (Array.isArray(tour.image_urls) && tour.image_urls.length > 0) {
-    return tour.image_urls.filter(Boolean);
+    return tour.image_urls.filter(Boolean).map(getImageUrl);
   }
 
-  return tour.image_url ? [tour.image_url] : [];
+  return tour.image_url ? [getImageUrl(tour.image_url)] : [];
 };
 
 const CATEGORY_LABELS = {

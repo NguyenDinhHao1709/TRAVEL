@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import ImageUpload from '../../components/ImageUpload';
 import client from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
+import { getImageUrl } from '../../utils/imageUrl';
 
 const initialForm = { title: '', content: '', imageUrl: '', tourId: '' };
 
@@ -178,7 +179,7 @@ const AdminArticlesPage = () => {
                 {form.imageUrl && (
                   <div className="mt-2">
                     <img
-                      src={form.imageUrl}
+                      src={getImageUrl(form.imageUrl)}
                       alt="preview"
                       style={{ maxHeight: '160px', maxWidth: '100%', borderRadius: '8px', objectFit: 'contain' }}
                     />

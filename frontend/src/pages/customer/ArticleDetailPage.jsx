@@ -7,6 +7,12 @@ const getSharpImageUrl = (url, maxWidth = 2200) => {
   const normalizedUrl = String(url || '').trim();
   if (!normalizedUrl) return '';
 
+  // Handle local /uploads/ paths — prefix with backend base URL
+  if (normalizedUrl.startsWith('/uploads/')) {
+    const backendBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+    return `${backendBase}${normalizedUrl}`;
+  }
+
   if (!normalizedUrl.includes('res.cloudinary.com') || !normalizedUrl.includes('/upload/')) {
     return normalizedUrl;
   }
