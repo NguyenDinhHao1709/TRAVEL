@@ -69,15 +69,6 @@ exports.createArticle = async (req, res) => {
   );
     res.status(201).json({ id: result.insertId, message: 'Tạo bài viết thành công' });
 
-    // Log system_logs
-    await logService.logAction({
-      req,
-      userId: req.user.id,
-      role: req.user.role,
-      action: 'Tạo bài viết',
-      actionDetail: `Tạo bài viết "${title}" (ID: ${result.insertId})`,
-      details: { articleId: result.insertId, title, tourId }
-    });
   // Log system_logs
   await logService.logAction({
     req,
@@ -102,15 +93,6 @@ exports.updateArticle = async (req, res) => {
   );
     res.json({ message: 'Cập nhật bài viết thành công' });
 
-    // Log system_logs
-    await logService.logAction({
-      req,
-      userId: req.user.id,
-      role: req.user.role,
-      action: 'Sửa bài viết',
-      actionDetail: `Cập nhật bài viết ID: ${id}`,
-      details: { articleId: id, ...req.body }
-    });
   // Log system_logs
   await logService.logAction({
     req,
@@ -128,15 +110,6 @@ exports.deleteArticle = async (req, res) => {
   await pool.execute('DELETE FROM articles WHERE id = ?', [req.params.id]);
     res.json({ message: 'Xóa bài viết thành công' });
 
-    // Log system_logs
-    await logService.logAction({
-      req,
-      userId: req.user.id,
-      role: req.user.role,
-      action: 'Xóa bài viết',
-      actionDetail: `Xóa bài viết ID: ${req.params.id}`,
-      details: { articleId: req.params.id }
-    });
   // Log system_logs
   await logService.logAction({
     req,
