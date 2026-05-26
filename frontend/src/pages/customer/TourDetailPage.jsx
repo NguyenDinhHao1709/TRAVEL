@@ -302,6 +302,82 @@ const TourDetailPage = () => {
   const itineraryDays = parseItinerary(tour.itinerary);
   const tripDuration = getTripDuration();
 
+  const renderBookingCard = () => (
+    <Card className="border-0 shadow-sm mb-3">
+      <Card.Body>
+        <div className="text-center mb-3">
+          <div style={{ fontSize: '14px', color: '#6b7280' }}>Giá từ</div>
+          <div style={{ fontSize: '28px', fontWeight: 700, color: '#0d6efd' }}>
+            {Number(tour.price).toLocaleString()} <span style={{ fontSize: '16px', fontWeight: 400 }}>VND</span>
+          </div>
+          <div style={{ fontSize: '13px', color: '#9ca3af' }}>/ người</div>
+        </div>
+
+        <hr />
+
+        {tour.start_date && (
+          <div className="mb-3">
+            <div className="d-flex justify-content-between" style={{ fontSize: '14px' }}>
+              <span className="text-muted">📅 Khởi hành</span>
+              <strong>{new Date(tour.start_date).toLocaleDateString('vi-VN')}</strong>
+            </div>
+            {tour.end_date && (
+              <div className="d-flex justify-content-between mt-1" style={{ fontSize: '14px' }}>
+                <span className="text-muted">📅 Kết thúc</span>
+                <strong>{new Date(tour.end_date).toLocaleDateString('vi-VN')}</strong>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="d-flex justify-content-between mb-2" style={{ fontSize: '14px' }}>
+          <span className="text-muted">👤 Chỗ còn</span>
+          <strong style={{ color: tour.slots <= 5 ? '#ef4444' : undefined }}>
+            {tour.slots} chỗ
+          </strong>
+        </div>
+
+        {message && <Alert variant="info" className="py-2 mt-2" style={{ fontSize: '13px' }}>{message}</Alert>}
+
+        {showBookingSection && (
+          <>
+            <Form.Group className="mb-3">
+              <Form.Label style={{ fontSize: '14px', fontWeight: 600 }}>Số người</Form.Label>
+              <Form.Control
+                type="number" min={1} max={tour.slots || 99}
+                value={booking.peopleCount}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  setBooking({ ...booking, peopleCount: Number.isNaN(v) ? '' : v });
+                }}
+              />
+            </Form.Group>
+
+            {booking.peopleCount > 0 && (
+              <div className="d-flex justify-content-between mb-3 p-2" style={{ background: '#f0f9ff', borderRadius: '6px', fontSize: '14px' }}>
+                <span>Tổng tiền</span>
+                <strong style={{ color: '#0d6efd' }}>
+                  {(Number(tour.price) * (booking.peopleCount || 1)).toLocaleString()} VND
+                </strong>
+              </div>
+            )}
+
+            {(tour.status === 'closed' || tour.status === 'draft' || isDeparted) ? (
+              <Button className="w-100 py-2 fw-bold" size="lg" variant="secondary" disabled style={{ fontSize: '16px', borderRadius: '8px', opacity: 0.7 }}>
+                {isDeparted ? 'Đã kết thúc' : 'Không thể đặt tour này'}
+              </Button>
+            ) : (
+              <Button className="w-100 py-2 fw-bold" size="lg" onClick={submitBooking}
+                style={{ fontSize: '16px', borderRadius: '8px' }}>
+                Đặt tour ngay
+              </Button>
+            )}
+          </>
+        )}
+      </Card.Body>
+    </Card>
+  );
+
   return (
     <>
       <Row className="g-3">
@@ -438,6 +514,11 @@ const TourDetailPage = () => {
           <Card className="mb-3 border-0 shadow-sm">
             <Card.Body>
               <div className="d-flex justify-content-between align-items-center mb-3">
+
+          {/* Mobile booking card: hiển thị ngay dưới lịch trình */}
+          <div className="d-lg-none">
+            {renderBookingCard()}
+          </div>
                 <h5 className="mb-0">📰 Bài viết về tour này</h5>
                 <Button as={Link} to="/articles" size="sm" variant="outline-primary">Xem tất cả</Button>
               </div>
@@ -600,82 +681,9 @@ const TourDetailPage = () => {
         </Col>
 
         {/* === RIGHT COLUMN - Sticky Booking Widget === */}
-        <Col lg={4}>
+        <Col lg={4} className="d-none d-lg-block">
           <div style={{ position: 'sticky', top: '90px' }}>
-            {/* Price & Booking Card */}
-            <Card className="border-0 shadow-sm mb-3">
-              <Card.Body>
-                <div className="text-center mb-3">
-                  <div style={{ fontSize: '14px', color: '#6b7280' }}>Giá từ</div>
-                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#0d6efd' }}>
-                    {Number(tour.price).toLocaleString()} <span style={{ fontSize: '16px', fontWeight: 400 }}>VND</span>
-                  </div>
-                  <div style={{ fontSize: '13px', color: '#9ca3af' }}>/ người</div>
-                </div>
-
-                <hr />
-
-                {tour.start_date && (
-                  <div className="mb-3">
-                    <div className="d-flex justify-content-between" style={{ fontSize: '14px' }}>
-                      <span className="text-muted">📅 Khởi hành</span>
-                      <strong>{new Date(tour.start_date).toLocaleDateString('vi-VN')}</strong>
-                    </div>
-                    {tour.end_date && (
-                      <div className="d-flex justify-content-between mt-1" style={{ fontSize: '14px' }}>
-                        <span className="text-muted">📅 Kết thúc</span>
-                        <strong>{new Date(tour.end_date).toLocaleDateString('vi-VN')}</strong>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="d-flex justify-content-between mb-2" style={{ fontSize: '14px' }}>
-                  <span className="text-muted">👤 Chỗ còn</span>
-                  <strong style={{ color: tour.slots <= 5 ? '#ef4444' : undefined }}>
-                    {tour.slots} chỗ
-                  </strong>
-                </div>
-
-                {message && <Alert variant="info" className="py-2 mt-2" style={{ fontSize: '13px' }}>{message}</Alert>}
-
-                {showBookingSection && (
-                  <>
-                    <Form.Group className="mb-3">
-                      <Form.Label style={{ fontSize: '14px', fontWeight: 600 }}>Số người</Form.Label>
-                      <Form.Control
-                        type="number" min={1} max={tour.slots || 99}
-                        value={booking.peopleCount}
-                        onChange={(e) => {
-                          const v = parseInt(e.target.value, 10);
-                          setBooking({ ...booking, peopleCount: Number.isNaN(v) ? '' : v });
-                        }}
-                      />
-                    </Form.Group>
-
-                    {booking.peopleCount > 0 && (
-                      <div className="d-flex justify-content-between mb-3 p-2" style={{ background: '#f0f9ff', borderRadius: '6px', fontSize: '14px' }}>
-                        <span>Tổng tiền</span>
-                        <strong style={{ color: '#0d6efd' }}>
-                          {(Number(tour.price) * (booking.peopleCount || 1)).toLocaleString()} VND
-                        </strong>
-                      </div>
-                    )}
-
-                    {(tour.status === 'closed' || tour.status === 'draft' || isDeparted) ? (
-                      <Button className="w-100 py-2 fw-bold" size="lg" variant="secondary" disabled style={{ fontSize: '16px', borderRadius: '8px', opacity: 0.7 }}>
-                        {isDeparted ? 'Đã kết thúc' : 'Không thể đặt tour này'}
-                      </Button>
-                    ) : (
-                      <Button className="w-100 py-2 fw-bold" size="lg" onClick={submitBooking}
-                        style={{ fontSize: '16px', borderRadius: '8px' }}>
-                        Đặt tour ngay
-                      </Button>
-                    )}
-                  </>
-                )}
-              </Card.Body>
-            </Card>
+            {renderBookingCard()}
 
             {/* Quick Info Card */}
             {tour.avg_rating > 0 && (
