@@ -8,10 +8,17 @@ const UPLOAD_DIR = path.join(__dirname, '../../../uploads');
 
 async function processImage(buffer) {
   if (!sharp) return buffer;
-  return sharp(buffer)
-    .resize({ width: 1920, withoutEnlargement: true })
-    .jpeg({ quality: 85, mozjpeg: true })
-    .toBuffer();
+  try {
+    return await sharp(buffer)
+      .rotate()
+      .resize({ width: 2200, withoutEnlargement: true })
+      .withMetadata()
+      .jpeg({ quality: 90, mozjpeg: true, progressive: true })
+      .toBuffer();
+  } catch (err) {
+    console.error('[Upload] Sharp processing error:', err.message);
+    return buffer;
+  }
 }
 
 async function saveLocalFile(buffer, originalname) {

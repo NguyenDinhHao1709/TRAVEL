@@ -15,15 +15,23 @@ module.exports = {
           resource_type: 'image',
           quality: 'auto:best',
           fetch_format: 'auto',
+          eager: [
+            { width: 600, crop: 'scale', quality: 'auto:good', fetch_format: 'auto' },
+            { width: 960, crop: 'scale', quality: 'auto:good', fetch_format: 'auto' },
+            { width: 1440, crop: 'scale', quality: 'auto:best', fetch_format: 'auto' },
+            { width: 2200, crop: 'scale', quality: 'auto:best', fetch_format: 'auto' }
+          ],
           transformation: [
-            { width: 1920, crop: 'limit' },
+            { angle: 'auto' },
+            { width: 2200, crop: 'limit', gravity: 'auto' },
             { quality: 'auto:best' },
-            { fetch_format: 'auto' }
+            { fetch_format: 'auto' },
+            { dpr: 'auto' }
           ]
         },
         (error, result) => {
           if (error) reject(error);
-          else resolve({ url: result.secure_url, publicId: result.public_id });
+          else resolve({ url: result.secure_url, publicId: result.public_id, eager: result.eager });
         }
       );
       stream.end(buffer);

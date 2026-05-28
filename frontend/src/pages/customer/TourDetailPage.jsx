@@ -4,7 +4,7 @@ import { Card, Row, Col, Button, Form, Alert, Badge, Accordion } from 'react-boo
 import client from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
 import MapComponent from '../../components/MapComponent';
-import { getImageUrl } from '../../utils/imageUrl';
+import { getImageUrl, getSharpImageUrl, generateImageSrcset, getImageSizes } from '../../utils/imageUrl';
 
 const renderStars = (value = 0) => {
   const safeValue = Math.max(0, Math.min(5, Number(value) || 0));
@@ -19,6 +19,8 @@ const getTourImages = (tour) => {
 
   return tour.image_url ? [getImageUrl(tour.image_url)] : [];
 };
+
+const getTourSharpImage = (url) => getSharpImageUrl(url, 2200);
 
 const CATEGORY_LABELS = {
   'bien-dao': 'Tour Biển đảo',
@@ -112,7 +114,8 @@ const TourDetailPage = () => {
     try {
       const { data: tourData } = await client.get(`/tours/${id}`);
       setTour(tourData);
-      setSelectedImage(getTourImages(tourData)[0] || '');
+      const firstImage = getTourImages(tourData)[0] || '';
+      setSelectedImage(getTourSharpImage(firstImage));
       setCurrentImageIndex(0);
     } catch (err) {
       setMessage('Không thể tải thông tin tour. Vui lòng thử lại.');
@@ -133,7 +136,7 @@ const TourDetailPage = () => {
     if (tourImages.length === 0) return;
     const prevIndex = (currentImageIndex - 1 + tourImages.length) % tourImages.length;
     setCurrentImageIndex(prevIndex);
-    setSelectedImage(tourImages[prevIndex]);
+    setSelectedImage(getTourSharpImage(tourImages[prevIndex]));
   };
 
   const handleNextImage = () => {
@@ -142,7 +145,7 @@ const TourDetailPage = () => {
     if (tourImages.length === 0) return;
     const nextIndex = (currentImageIndex + 1) % tourImages.length;
     setCurrentImageIndex(nextIndex);
-    setSelectedImage(tourImages[nextIndex]);
+    setSelectedImage(getTourSharpImage(tourImages[nextIndex]));
   };
 
   useEffect(() => {
@@ -392,7 +395,17 @@ const TourDetailPage = () => {
           {/* Image Gallery */}
           <Card className="mb-3 border-0 shadow-sm">
             <div style={{ position: 'relative', background: '#f8f9fa', padding: '20px', textAlign: 'center', minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px 12px 0 0' }}>
-              {selectedImage && <Card.Img variant="top" src={selectedImage} style={{ height: 'auto', maxHeight: '400px', objectFit: 'contain', width: '100%' }} />}
+              {selectedImage && (
+                <img
+                  src={selectedImage}
+                  srcSet={generateImageSrcset(selectedImage)}
+                  sizes={getImageSizes()}
+                  alt={tour.title}
+                  loading="eager"
+                  decoding="async"
+                  style={{ width: '100%', height: 'auto', maxHeight: '480px', objectFit: 'contain' }}
+                />
+              )}
               
               {tourImages.length > 1 && (
                 <>
@@ -429,18 +442,23 @@ const TourDetailPage = () => {
             <Card.Body>
               {tourImages.length > 1 && (
                 <div className="d-flex flex-wrap gap-2 mb-3">
-                  {tourImages.map((imageUrl, index) => (
-                    <img
-                      key={`${imageUrl}-${index}`}
-                      src={imageUrl}
-                      alt={`${tour.title}-${index + 1}`}
-                      onClick={() => { setSelectedImage(imageUrl); setCurrentImageIndex(index); }}
-                      style={{
-                        width: '72px', height: '72px', objectFit: 'contain', borderRadius: '8px',
-                        cursor: 'pointer', border: currentImageIndex === index ? '2px solid #0d6efd' : '2px solid transparent'
-                      }}
-                    />
-                  ))}
+                  {tourImages.map((imageUrl, index) => {
+                    const thumbUrl = getSharpImageUrl(imageUrl, 150);
+                    return (
+                      <img
+                        key={`${imageUrl}-${index}`}
+                        src={thumbUrl}
+                        alt={`${tour.title}-${index + 1}`}
+                        loading="lazy"
+                        decoding="async"
+                        onClick={() => { setSelectedImage(getTourSharpImage(imageUrl)); setCurrentImageIndex(index); }}
+                        style={{
+                          width: '72px', height: '72px', objectFit: 'contain', borderRadius: '8px',
+                          cursor: 'pointer', border: currentImageIndex === index ? '2px solid #0d6efd' : '2px solid transparent'
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               )}
 

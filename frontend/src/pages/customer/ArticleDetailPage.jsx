@@ -2,28 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Card, Badge, Button, Alert, Spinner } from 'react-bootstrap';
 import client from '../../api/client';
-
-const getSharpImageUrl = (url, maxWidth = 2200) => {
-  const normalizedUrl = String(url || '').trim();
-  if (!normalizedUrl) return '';
-
-  // Handle local /uploads/ paths — prefix with backend base URL
-  if (normalizedUrl.startsWith('/uploads/')) {
-    const backendBase = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
-    return `${backendBase}${normalizedUrl}`;
-  }
-
-  if (!normalizedUrl.includes('res.cloudinary.com') || !normalizedUrl.includes('/upload/')) {
-    return normalizedUrl;
-  }
-
-  if (normalizedUrl.includes('/upload/f_auto') || normalizedUrl.includes('/upload/q_auto')) {
-    return normalizedUrl;
-  }
-
-  const transform = `f_auto,q_auto:best,dpr_auto,c_limit,w_${maxWidth}`;
-  return normalizedUrl.replace('/upload/', `/upload/${transform}/`);
-};
+import { getSharpImageUrl, generateImageSrcset, getImageSizes } from '../../utils/imageUrl';
 
 const ArticleDetailPage = () => {
   const { id } = useParams();
@@ -74,6 +53,8 @@ const ArticleDetailPage = () => {
         <div style={{ background: '#f3f6fb' }}>
           <img
             src={articleImageUrl}
+            srcSet={generateImageSrcset(articleImageUrl)}
+            sizes={getImageSizes()}
             alt={article.title}
             loading="eager"
             decoding="async"

@@ -3,7 +3,7 @@ import { Card, Row, Col, Badge, Alert, Spinner, Button, Form } from 'react-boots
 import { Link, useNavigate } from 'react-router-dom';
 import client from '../../api/client';
 import { useAuth } from '../../contexts/AuthContext';
-import { getImageUrl } from '../../utils/imageUrl';
+import { getImageUrl, getSharpImageUrl, generateImageSrcset, getImageSizes } from '../../utils/imageUrl';
 
 const initialForm = {
   title: '',
@@ -270,10 +270,14 @@ const ArticlesPage = () => {
                 onClick={() => navigate(`/articles/${article.id}`)}
               >
                 {article.image_url && (
-                  <Card.Img
+                  <img
                     variant="top"
-                    src={getImageUrl(article.image_url)}
-                    style={{ height: '190px', objectFit: 'cover' }}
+                    src={getSharpImageUrl(article.image_url, 400)}
+                    srcSet={generateImageSrcset(article.image_url)}
+                    sizes={getImageSizes()}
+                    loading="lazy"
+                    decoding="async"
+                    style={{ height: '190px', objectFit: 'cover', width: '100%', display: 'block' }}
                     alt={article.title}
                   />
                 )}

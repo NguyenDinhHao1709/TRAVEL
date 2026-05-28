@@ -1,4 +1,30 @@
 /* ============================================
+   IMAGE OPTIMIZATION & RENDERING
+   ============================================ */
+img {
+  image-rendering: crisp-edges;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* Tour detail & article images - prevent blur on scaling */
+img[srcSet],
+img[sizes] {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* High-resolution image display */
+@media (min-device-pixel-ratio: 2),
+       (min-resolution: 192dpi) {
+  img[srcSet],
+  img[sizes] {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* ============================================
    ADMIN DASHBOARD & TABLE RESPONSIVE
    ============================================ */
 @media (max-width: 992px) {
